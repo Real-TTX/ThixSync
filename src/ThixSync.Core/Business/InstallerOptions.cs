@@ -11,9 +11,10 @@ namespace ThixSync.Core.Business;
 /// manifest as <c>"installer"</c>, where ThixLauncher and ThixInstall read it).</item>
 /// <item><see cref="Parse"/>: the command line of SETUP-05 – <c>--quiet</c> (install), <c>--update</c>, <c>--configure</c>
 /// (only apply), <c>--uninstall</c>, <c>--start</c>, and the options <c>--desktop-shortcut=yes|no</c>, <c>--autostart=yes|no</c>,
-/// <c>--automatic-updates=yes|no</c>, <c>--file-types=.md,.txt|none|default</c>. A wrong value fails at once (exit code 2).</item>
+/// <c>--automatic-updates=yes|no</c>, <c>--cli-path=yes|no</c>, <c>--file-types=.md,.txt|none|default</c>. A wrong value fails at
+/// once (exit code 2).</item>
 /// <item><see cref="Current"/> and <see cref="Apply"/>: what the installed app has, and making it so (shortcut, autostart,
-/// automatic updates).</item>
+/// automatic updates, the command line on the PATH).</item>
 /// </list>
 /// ThixSync opens no files: its <c>fileTypes</c> are empty, so <c>--file-types</c> takes only <c>none</c> or <c>default</c>.
 /// An app that offers file types associates them here (ThixFred: Platform/Windows/FileAssociations, Mac/MacFileAssociations).
@@ -28,6 +29,7 @@ public static class InstallerOptions
     public const string DesktopShortcutOption = "--desktop-shortcut";
     public const string AutostartOption = "--autostart";
     public const string AutomaticUpdatesOption = "--automatic-updates";
+    public const string CliPathOption = "--cli-path";
     public const string FileTypesOption = "--file-types";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -42,7 +44,8 @@ public static class InstallerOptions
         Config.DesktopShortcut?.Default ?? false,
         Config.Autostart?.Default ?? false,
         Config.AutomaticUpdates?.Default ?? false,
-        Config.FileTypes.Where(type => type.Default).Select(type => type.Extension).ToList());
+        Config.FileTypes.Where(type => type.Default).Select(type => type.Extension).ToList(),
+        Config.CliPath?.Default ?? false);
 
     /// <summary>Another configuration (tests); null = installer.json again.</summary>
     public static void UseConfigForTests(InstallerConfig? config) => _config = config;
@@ -73,8 +76,9 @@ public static class InstallerOptions
                 DesktopShortcutOption => choices with { DesktopShortcut = Switch(name, value, Config.DesktopShortcut) },
                 AutostartOption => choices with { Autostart = Switch(name, value, Config.Autostart) },
                 AutomaticUpdatesOption => choices with { AutomaticUpdates = Switch(name, value, Config.AutomaticUpdates) },
+                CliPathOption => choices with { CliPath = Switch(name, value, Config.CliPath) },
                 FileTypesOption => choices with { FileTypes = FileTypes(value) },
-                _ => throw new BusinessException($"Unbekannte Option „{name}“. Möglich: {DesktopShortcutOption}, {AutostartOption}, {AutomaticUpdatesOption}, {FileTypesOption}."),
+                _ => throw new BusinessException($"Unbekannte Option „{name}“. Möglich: {DesktopShortcutOption}, {AutostartOption}, {AutomaticUpdatesOption}, {CliPathOption}, {FileTypesOption}."),
             };
         }
 
@@ -106,6 +110,11 @@ public static class InstallerOptions
             arguments.Add($"{AutomaticUpdatesOption}={YesNo(updates)}");
         }
 
+        if (choices.CliPath is { } cliPath)
+        {
+            arguments.Add($"{CliPathOption}={YesNo(cliPath)}");
+        }
+
         if (choices.FileTypes is { } types)
         {
             arguments.Add($"{FileTypesOption}={(types.Count == 0 ? "none" : string.Join(',', types))}");
@@ -119,7 +128,8 @@ public static class InstallerOptions
         OperatingSystem.IsWindows() && InstallService.HasDesktopShortcut,
         AutostartService.IsEnabled(),
         SettingsService.Get().InstallUpdatesAutomatically,
-        []);
+        [],
+        OperatingSystem.IsWindows() && InstallService.IsCliOnPath);
 
     /// <summary>
     /// Makes the choices so for the program <paramref name="executable"/> (the installed one). Only offered options are
@@ -159,6 +169,12 @@ public static class InstallerOptions
                 // a configuration locked by policy keeps its value
                 log(exception.Message);
             }
+        }
+
+        // macOS: the command line sits in the bundle (Contents/MacOS/thixsync-cli); a link on the PATH would need sudo
+        if (Config.CliPath is not null && choices.CliPath is { } cliPath && OperatingSystem.IsWindows())
+        {
+            log(InstallService.SetCliOnPath(cliPath));
         }
     }
 

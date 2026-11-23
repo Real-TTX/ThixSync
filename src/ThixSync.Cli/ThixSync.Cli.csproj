@@ -1,0 +1,61 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The command line of ThixSync: thixsync-cli (not "thixsync": thixsync.exe would clash with ThixSync.exe in the same folder,
+    file names ignore case on Windows and macOS). Same data folder as the app (AppPaths, THIXSYNC_DATA_DIR), so jobs, connections and
+    the protocol are shared with it; only the business layer of ThixSync.Core is used, no UI.
+    Windows: published self-contained single-file for win-x64 (trimmed "partial", like the app) and embedded into ThixSync.exe by CI
+             (ThixSync.csproj, ThixSyncCliPath); the setup puts it next to ThixSync.exe and on the PATH.
+    macOS:   published self-contained for osx-arm64 / osx-x64 into ThixSync.app/Contents/MacOS (shares the runtime files of the app,
+             scripts/package-macos.sh).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
+    <AssemblyName>thixsync-cli</AssemblyName>
+    <RootNamespace>ThixSync.Cli</RootNamespace>
+    <AssemblyTitle>ThixSync (Befehlszeile)</AssemblyTitle>
+    <ApplicationIcon>..\ThixSync\Assets\thixsync.ico</ApplicationIcon>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+    <!-- German number formats ("3,2 GB", "1.204") need the culture data. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <SelfContained>true</SelfContained>
+    <DebugType>none</DebugType>
+    <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+    <AllowedReferenceRelatedFileExtensions>none</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
+  <!--
+    Windows: one file, trimmed in "partial" mode (only libraries that declare themselves trimmable lose what is never called; ThixSync's
+    own assemblies stay whole, so the reflection-based JSON of our own types keeps working). CI runs the published file once
+    ("Smoke test of the command line") before it is embedded.
+  -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('win-'))">
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <!-- The reflection-based JSON is intended (our assemblies stay whole); the smoke test proves it, the warnings would only repeat it. -->
+    <EnableTrimAnalyzer>false</EnableTrimAnalyzer>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  </PropertyGroup>
+
+  <!-- macOS: the files go next to the app's in ThixSync.app/Contents/MacOS (same runtime, not trimmed, like the app). -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx-'))">
+    <UseAppHost>true</UseAppHost>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixSync.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ThixSync.Core\ThixSync.Core.csproj" />
+  </ItemGroup>
+
+</Project>

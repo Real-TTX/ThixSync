@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/ThixSync.Cli/ThixSync.Cli.csproj" />
     <Project Path="src/ThixSync.Core/ThixSync.Core.csproj" />
     <Project Path="src/ThixSync/ThixSync.csproj" />
   </Folder>

@@ -39,7 +39,19 @@ autostart, tray, self test, snapshots, CI) comes from ThixClip.
 - Icons: `cd tools && npm install && node render-icons.js` renders `branding/*.svg` into `branding/png` and `src/ThixSync/Assets`.
 - `THIXSYNC_DATA_DIR=<folder>` runs an own instance with its own data. Windows screenshots of the real window need a real screen
   (a disconnected RDP session has 640x480; the map keeps a minimum height of 280 px).
-- `scripts/package-macos.sh` builds `ThixSync.app` (Dock icon, folder usage descriptions, ad-hoc signature), the update zip and the dmg.
+- `scripts/package-macos.sh` builds `ThixSync.app` (Dock icon, folder usage descriptions, ad-hoc signature), the update zip and the dmg;
+  with the CLI's publish folder as 6th argument it adds `Contents/MacOS/thixsync-cli` (sharing the app's runtime files) and
+  `ThixSync-CLI-macOS-<arch>.tar.gz`.
+- **CLI** `src/ThixSync.Cli` → `thixsync-cli` (never `thixsync`: it would clash with ThixSync.exe, names ignore case): `list`, `run
+  <job> [--preview [--all]] [--confirm-deletes] [--json] [--quiet]`, `status`, `runs`, `log <run>`, `connections`, `test`, `pause`,
+  `resume`, `export`, `import` (ExportService: no secrets, ids kept, existing skipped), `help`, `--version`. Same data folder as the
+  app; only the business layer. Exit codes (ExitCodes.cs, in the help): 0 ok, 1 warnings/conflicts/needs confirmation, 2 failed,
+  3 usage, 4 not found, 5 business error, 130 Ctrl+C. Seams for tests: `CliHost` (writers, runner, progress, Ctrl+C); `CliTests`.
+  `scripts/smoke-test-cli.sh <exe>` checks a published (trimmed) CLI; CI runs it on Windows and macOS.
+- **Shipping the CLI on Windows:** CI publishes it (single file, trimmed partial) and embeds it into ThixSync.exe with
+  `-p:ThixSyncCliPath=<file>` (resource `thixsync-cli.exe`); `InstallService` extracts it next to ThixSync.exe on install/update and
+  – install option `cli-path` (installer.json, `--cli-path=yes|no`, default on) – adds the program folder to the user's PATH
+  (HKCU\Environment, WM_SETTINGCHANGE); uninstall removes both (`CliSetupTests` with a test registry key).
 
 ## Map
 
@@ -109,7 +121,10 @@ tests/ThixSync.Tests  SpaceTests, SyncTests, UiTests, PlatformTests; FakeCloud =
   `0.1.42-20261123` (main), nightly `nightly-43-20261123` (dev), local `local-20261123` (everything else).
 - Branches: `main` = release, `dev` = nightly. **Commits are authored by Matthias Schmoldt only – no co-author trailers, no other
   names, no "generated with" lines.**
-- `.github/workflows/desktop.yml`: Windows (test, publish win-x64 single file = `ThixSyncSetup.exe`, self test), macOS (test, publish
-  osx-arm64 + osx-x64, `package-macos.sh` → dmg/zip), publish (manifest `thixsync-update.json` with `installer`, rolling releases
-  `release-channel` / `nightly-channel`, versioned release `v<version>` on main).
+- `.github/workflows/desktop.yml` (every branch; publishing only main/dev): Windows (`dotnet test ThixSync.slnx`, publish the CLI +
+  smoke test, publish win-x64 single file with the CLI embedded = `ThixSyncSetup.exe`, self test, `ThixSync-CLI-win-x64.zip`), macOS
+  (test, publish CLI + app for osx-arm64 + osx-x64, `package-macos.sh` → dmg/zip/CLI tar.gz, smoke test), publish (manifest
+  `thixsync-update.json` with `installer`, rolling releases `release-channel` / `nightly-channel` incl. the CLI archives, versioned
+  release `v<version>` on main). OAuth client ids come from the secrets `THIXSYNC_{GOOGLE,MICROSOFT,DROPBOX,BOX}_CLIENT_ID`,
+  `THIXSYNC_{GOOGLE,BOX}_CLIENT_SECRET` as MSBuild properties `ThixSyncGoogleClientId` ….
 - MatCloud knows the app id `space` since contract 1.6.0; ThixLauncher lists ThixSync in its catalog (`thixsync`, CloudApp Space).

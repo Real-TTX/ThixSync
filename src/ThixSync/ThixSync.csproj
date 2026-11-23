@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The desktop application for Windows and macOS (Avalonia): the window with the map, tray / menu bar icon and - on
+    The desktop application for Windows and macOS (Avalonia): the window, tray / menu bar icon and - on
     Windows - its own setup (same program).
     Windows: published self-contained single-file for win-x64; that ThixSync.exe is its own setup (InstallService).
     macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixSync.app (scripts/package-macos.sh).
@@ -77,6 +77,19 @@
   <ItemGroup>
     <ProjectReference Include="..\ThixSync.Core\ThixSync.Core.csproj" />
   </ItemGroup>
+
+  <!--
+    The command line travels inside ThixSync.exe (Windows): CI publishes thixsync-cli.exe first and passes it as
+    -p:ThixSyncCliPath=<file>; the setup (InstallService) puts it next to ThixSync.exe and on the PATH. Builds without the property
+    (local, tests, macOS) carry no command line.
+  -->
+  <ItemGroup Condition="'$(ThixSyncCliPath)' != ''">
+    <EmbeddedResource Include="$(ThixSyncCliPath)" LogicalName="thixsync-cli.exe" Link="thixsync-cli.exe" />
+  </ItemGroup>
+
+  <Target Name="CheckThixSyncCliPath" BeforeTargets="BeforeBuild" Condition="'$(ThixSyncCliPath)' != '' And !Exists('$(ThixSyncCliPath)')">
+    <Error Text="ThixSyncCliPath points to '$(ThixSyncCliPath)', which does not exist (publish src/ThixSync.Cli first)." />
+  </Target>
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\thixsync.ico" />

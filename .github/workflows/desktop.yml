@@ -1,39 +1,49 @@
 name: desktop
 
-# Builds, tests and packages the ThixSync desktop app for Windows and macOS for every branch.
+# Builds, tests and packages the ThixSync desktop app (with its command line thixsync-cli) for Windows and macOS on every branch,
+# versioned by branch:
 #   main  -> release : <major>.<minor>.<run number>-<date>   e.g. 0.1.42-20261115
 #   dev   -> nightly : nightly-<run number>-<date>          e.g. nightly-43-20261115
-#   other -> local   : local-<date>                          (pull requests, feature branches)
+#   other -> local   : local-<date>                          (feature branches, pull requests: built and tested, never published)
 # The run number grows with every build of this workflow and is the build number the update check compares.
 #
 # Packages:
-#   Windows : ThixSyncSetup.exe (the program is its own setup: install, update, uninstall)
-#   macOS   : ThixSync-macOS-<arm64|x64>.dmg (first installation) and .zip (update of installed versions)
+#   Windows : ThixSyncSetup.exe (the program is its own setup: install, update, uninstall; it carries thixsync-cli.exe, which the
+#             setup puts next to ThixSync.exe and on the PATH)
+#   macOS   : ThixSync-macOS-<arm64|x64>.dmg (first installation) and .zip (update of installed versions); the app bundle carries
+#             Contents/MacOS/thixsync-cli
+#   CLI     : ThixSync-CLI-win-x64.zip and ThixSync-CLI-macOS-<arm64|x64>.tar.gz (the command line alone, for servers and scripts)
 #   every build      : workflow artifact "ThixSync-<version>" (all packages + update manifest)
 #   main (push or manual run) : rolling release "release-channel" (OTA feed of release builds) + versioned release "v<version>"
 #   dev  (push or manual run) : rolling pre-release "nightly-channel" (OTA feed of nightly builds)
+# The update manifest thixsync-update.json (UpdateService, ThixLauncher: catalog entry "thixsync") names ThixSyncSetup.exe for
+# win-x64 and ThixSync-macOS-<arch>.zip for osx-<arch>, plus the install options ("installer", src/ThixSync.Core/installer.json).
 # The server is MatCloud (its own repository); src/ThixSync.Core/MatCloud is the copy of its contract.
+#
+# Sign-in with cloud storage (OAuth): optional repository secrets THIXSYNC_GOOGLE_CLIENT_ID, THIXSYNC_GOOGLE_CLIENT_SECRET,
+# THIXSYNC_MICROSOFT_CLIENT_ID, THIXSYNC_DROPBOX_CLIENT_ID, THIXSYNC_BOX_CLIENT_ID, THIXSYNC_BOX_CLIENT_SECRET are read by MSBuild as
+# properties from the environment (empty = the defaults of the build). Users never enter a client id.
 
 on:
   push:
-    branches: [main, dev]
+    branches: ['**']
     paths:
-      - 'src/ThixSync/**'
-      - 'src/ThixSync.Core/**'
-      - 'tests/ThixSync.Tests/**'
+      - 'src/**'
+      - 'tests/**'
       - 'branding/**'
-      - 'scripts/package-macos.sh'
+      - 'scripts/**'
+      - 'ThixSync.slnx'
       - 'Directory.Build.props'
       - 'global.json'
       - '.github/workflows/desktop.yml'
   pull_request:
     branches: [main, dev]
     paths:
-      - 'src/ThixSync/**'
-      - 'src/ThixSync.Core/**'
-      - 'tests/ThixSync.Tests/**'
+      - 'src/**'
+      - 'tests/**'
       - 'branding/**'
-      - 'scripts/package-macos.sh'
+      - 'scripts/**'
+      - 'ThixSync.slnx'
       - 'Directory.Build.props'
       - 'global.json'
       - '.github/workflows/desktop.yml'
@@ -51,6 +61,13 @@ env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # OAuth client ids of the app registrations, read by MSBuild as properties (empty: the defaults of the build).
+  ThixSyncGoogleClientId: ${{ secrets.THIXSYNC_GOOGLE_CLIENT_ID }}
+  ThixSyncGoogleClientSecret: ${{ secrets.THIXSYNC_GOOGLE_CLIENT_SECRET }}
+  ThixSyncMicrosoftClientId: ${{ secrets.THIXSYNC_MICROSOFT_CLIENT_ID }}
+  ThixSyncDropboxClientId: ${{ secrets.THIXSYNC_DROPBOX_CLIENT_ID }}
+  ThixSyncBoxClientId: ${{ secrets.THIXSYNC_BOX_CLIENT_ID }}
+  ThixSyncBoxClientSecret: ${{ secrets.THIXSYNC_BOX_CLIENT_SECRET }}
 
 jobs:
   version:
@@ -104,22 +121,32 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore tests/ThixSync.Tests/ThixSync.Tests.csproj
+        run: dotnet restore ThixSync.slnx
 
       - name: Build
-        run: dotnet build tests/ThixSync.Tests/ThixSync.Tests.csproj -c Release --no-restore ${{ needs.version.outputs.props }}
+        run: dotnet build ThixSync.slnx -c Release --no-restore ${{ needs.version.outputs.props }}
 
-      # Business layer, sync against an in-memory cloud and the UI rendered headless. The end-to-end test against a
-      # running cloud needs THIXSYNC_CLOUD_URL and is skipped here.
+      # Every test project of the solution (ThixSync.Tests: business layer, engine, providers, CLI, setup; ThixSync.UiTests: the UI
+      # rendered headless). Tests against real accounts or a running cloud need their variables and are skipped here.
       - name: Test
-        run: dotnet test tests/ThixSync.Tests/ThixSync.Tests.csproj -c Release --no-build --logger GitHubActions
+        run: dotnet test ThixSync.slnx -c Release --no-build --logger GitHubActions
         env:
           THIXSYNC_SCREENSHOTS: ${{ github.workspace }}/screenshots
 
-      - name: Publish (win-x64, self-contained single file)
-        run: dotnet publish src/ThixSync/ThixSync.csproj -c Release -r win-x64 -o publish ${{ needs.version.outputs.props }}
+      # The command line first: it goes into ThixSync.exe (ThixSyncCliPath) and, zipped, into the release on its own.
+      - name: Publish the command line (win-x64, self-contained single file)
+        run: dotnet publish src/ThixSync.Cli/ThixSync.Cli.csproj -c Release -r win-x64 -o publish-cli ${{ needs.version.outputs.props }}
 
-      # The published program is trimmed: it checks itself (SelfTest.cs) – JSON, SQLite, the scanner, the token store,
+      # The published command line is trimmed: it proves itself (SQLite, JSON of the export, services, exit codes).
+      - name: Smoke test of the command line
+        shell: bash
+        timeout-minutes: 5
+        run: sh scripts/smoke-test-cli.sh publish-cli/thixsync-cli.exe
+
+      - name: Publish (win-x64, self-contained single file, with the command line)
+        run: dotnet publish src/ThixSync/ThixSync.csproj -c Release -r win-x64 -o publish ${{ needs.version.outputs.props }} "-p:ThixSyncCliPath=${{ github.workspace }}\publish-cli\thixsync-cli.exe"
+
+      # The published program is trimmed: it checks itself (SelfTest.cs) – JSON, SQLite, the engine, the token store,
       # shortcuts (COM) and every window – before anybody downloads it.
       - name: Self test of the published program
         shell: pwsh
@@ -129,14 +156,15 @@ jobs:
           if (Test-Path self-test.txt) { Get-Content self-test.txt } else { Write-Host 'no report written' }
           if ($process.ExitCode -ne 0) { throw "self test failed (exit code $($process.ExitCode))" }
 
-      # ThixSync.exe is its own setup (InstallService): started from the download it installs itself per user,
-      # "--update" is the silent update, "--uninstall" the uninstaller. No installer tool needed.
-      - name: Package setup
+      # ThixSync.exe is its own setup (InstallService): started from the download it installs itself per user (and puts the
+      # command line next to it), "--update" is the silent update, "--uninstall" the uninstaller. No installer tool needed.
+      - name: Package setup and command line
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           Copy-Item publish\ThixSync.exe artifacts\ThixSyncSetup.exe
-          Get-Item artifacts\ThixSyncSetup.exe | Select-Object Name, Length
+          Compress-Archive -Path publish-cli\thixsync-cli.exe -DestinationPath artifacts\ThixSync-CLI-win-x64.zip
+          Get-ChildItem artifacts | Select-Object Name, Length
 
       - uses: actions/upload-artifact@v4
         with:
@@ -162,26 +190,38 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Restore
-        run: dotnet restore tests/ThixSync.Tests/ThixSync.Tests.csproj
+        run: dotnet restore ThixSync.slnx
 
       - name: Build
-        run: dotnet build tests/ThixSync.Tests/ThixSync.Tests.csproj -c Release --no-restore ${{ needs.version.outputs.props }}
+        run: dotnet build ThixSync.slnx -c Release --no-restore ${{ needs.version.outputs.props }}
 
-      # The same tests as on Windows, here with the macOS defaults (Ctrl+Option+V, Keychain, LaunchAgent).
+      # The same tests as on Windows, here with the macOS defaults (Keychain, LaunchAgent, Finder).
       - name: Test
-        run: dotnet test tests/ThixSync.Tests/ThixSync.Tests.csproj -c Release --no-build --logger GitHubActions
+        run: dotnet test ThixSync.slnx -c Release --no-build --logger GitHubActions
         env:
           THIXSYNC_SCREENSHOTS: ${{ github.workspace }}/screenshots
 
+      # Per architecture: the command line (self-contained, next to the app in Contents/MacOS, sharing its runtime files),
+      # the app, ThixSync.app with dmg/zip and the command line alone as tar.gz (scripts/package-macos.sh).
       - name: Publish and package (arm64 and x64)
         shell: bash
         run: |
           set -euo pipefail
           chmod +x scripts/package-macos.sh
           for rid in osx-arm64 osx-x64; do
+            dotnet publish src/ThixSync.Cli/ThixSync.Cli.csproj -c Release -r "$rid" -o "publish-cli/$rid" ${{ needs.version.outputs.props }}
             dotnet publish src/ThixSync/ThixSync.csproj -c Release -r "$rid" -o "publish/$rid" ${{ needs.version.outputs.props }}
-            scripts/package-macos.sh "publish/$rid" "$rid" "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.build }}" artifacts
+            scripts/package-macos.sh "publish/$rid" "$rid" "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.build }}" artifacts "publish-cli/$rid"
           done
+
+      # The command line of this runner's architecture proves itself (the other one is the same code).
+      - name: Smoke test of the command line
+        shell: bash
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          if [ "$(uname -m)" = "arm64" ]; then rid=osx-arm64; else rid=osx-x64; fi
+          sh scripts/smoke-test-cli.sh "publish-cli/$rid/thixsync-cli"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -217,8 +257,8 @@ jobs:
           name: macos
           path: artifacts
 
-      # The manifest the installed application reads for its update check (UpdateService): "setup"/"sha256" for
-      # Windows, "packages" for each platform, "installer" what the setup offers (installer.json, SETUP-08).
+      # The manifest the installed application reads for its update check (UpdateService) and ThixLauncher for installing:
+      # "setup"/"sha256" for Windows, "packages" for each platform, "installer" what the setup offers (installer.json, SETUP-08).
       - name: Write update manifest
         shell: bash
         run: |
@@ -241,7 +281,7 @@ jobs:
             }
           }
           JSON
-          cat thixsync-update.json
+          python3 -m json.tool thixsync-update.json
           ls -l
 
       - uses: actions/upload-artifact@v4
@@ -266,9 +306,9 @@ jobs:
           if [ "$channel" = "release" ]; then prerelease=""; title="ThixSync (Release-Kanal)"; else prerelease="--prerelease"; title="ThixSync (Nightly-Kanal)"; fi
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --target "$GITHUB_SHA" --title "$title" $prerelease \
-              --notes "Neuester Build des Kanals ${channel}. Windows: ThixSyncSetup.exe installiert oder aktualisiert ThixSync. macOS: ThixSync-macOS-arm64.dmg (Apple Silicon) bzw. -x64.dmg (Intel) öffnen und ThixSync in „Programme“ ziehen. Installierte Versionen aktualisieren sich von hier aus selbst."
+              --notes "Neuester Build des Kanals ${channel}. Windows: ThixSyncSetup.exe installiert oder aktualisiert ThixSync (mit der Befehlszeile thixsync-cli). macOS: ThixSync-macOS-arm64.dmg (Apple Silicon) bzw. -x64.dmg (Intel) öffnen und ThixSync in „Programme“ ziehen. Installierte Versionen aktualisieren sich von hier aus selbst. Nur die Befehlszeile (Server, Skripte): ThixSync-CLI-win-x64.zip bzw. ThixSync-CLI-macOS-arm64.tar.gz / -x64.tar.gz."
           fi
-          gh release upload "$tag" artifacts/ThixSyncSetup.exe artifacts/ThixSync-macOS-*.zip artifacts/ThixSync-macOS-*.dmg --clobber
+          gh release upload "$tag" artifacts/ThixSyncSetup.exe artifacts/ThixSync-macOS-*.zip artifacts/ThixSync-macOS-*.dmg artifacts/ThixSync-CLI-* --clobber
           gh release upload "$tag" artifacts/thixsync-update.json --clobber
           gh release edit "$tag" --title "$title – $version"
           echo "Published $version to $tag"
@@ -284,6 +324,11 @@ jobs:
           version="${{ needs.version.outputs.version }}"
           cd artifacts
           cp ThixSyncSetup.exe "ThixSyncSetup-${version}.exe"
-          for arch in arm64 x64; do cp "ThixSync-macOS-${arch}.dmg" "ThixSync-${version}-macOS-${arch}.dmg"; done
+          cp ThixSync-CLI-win-x64.zip "ThixSync-CLI-${version}-win-x64.zip"
+          for arch in arm64 x64; do
+            cp "ThixSync-macOS-${arch}.dmg" "ThixSync-${version}-macOS-${arch}.dmg"
+            cp "ThixSync-CLI-macOS-${arch}.tar.gz" "ThixSync-CLI-${version}-macOS-${arch}.tar.gz"
+          done
           gh release create "v${version}" --target "$GITHUB_SHA" --title "ThixSync ${version}" --generate-notes \
-            "ThixSyncSetup-${version}.exe" "ThixSync-${version}-macOS-arm64.dmg" "ThixSync-${version}-macOS-x64.dmg"
+            "ThixSyncSetup-${version}.exe" "ThixSync-${version}-macOS-arm64.dmg" "ThixSync-${version}-macOS-x64.dmg" \
+            "ThixSync-CLI-${version}-win-x64.zip" "ThixSync-CLI-${version}-macOS-arm64.tar.gz" "ThixSync-CLI-${version}-macOS-x64.tar.gz"

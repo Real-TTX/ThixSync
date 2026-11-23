@@ -11,8 +11,10 @@ namespace ThixSync.Core.Business;
 /// Matgate agent and the MatMon setup - without a separate installer tool.
 /// The published ThixSync.exe is the setup: started from anywhere else it copies itself to
 /// %LocalAppData%\Programs\ThixSync (per user, no administrator rights), creates the Start menu entry, the entry in
-/// "Installierte Apps" and – as the install options say (InstallerOptions, SETUP-08) – the autostart, a desktop shortcut
-/// and automatic updates. "--uninstall" removes every one of them.
+/// "Installierte Apps" and – as the install options say (InstallerOptions, SETUP-08) – the autostart, a desktop shortcut,
+/// automatic updates and the command line on the PATH. "--uninstall" removes every one of them.
+/// The command line thixsync-cli.exe travels inside ThixSync.exe (an embedded resource CI adds, see ThixSync.csproj): installing
+/// and updating put it next to ThixSync.exe; the option "cli-path" adds the program folder to the user's PATH.
 /// User data (%LocalAppData%\ThixSync: history, settings) stays unless the user explicitly deletes it while uninstalling.
 /// </summary>
 [SupportedOSPlatform("windows")]
@@ -23,12 +25,21 @@ public static class InstallService
     public const string QuietArgument = InstallerOptions.QuietArgument;
     public const string ExecutableName = "ThixSync.exe";
 
+    /// <summary>The command line next to ThixSync.exe (not "thixsync.exe": it would clash with ThixSync.exe, names ignore case).</summary>
+    public const string CliExecutableName = "thixsync-cli.exe";
+
+    /// <summary>The name of the command line embedded in ThixSync.exe (LogicalName in ThixSync.csproj).</summary>
+    public const string CliResourceName = "thixsync-cli.exe";
+
     /// <summary>A running ThixSync listens for this signal and ends itself cleanly.</summary>
     public const string ExitSignalName = "ThixSync.Exit";
 
     private const string DefaultUninstallKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\ThixSync";
+    private const string DefaultEnvironmentKeyPath = "Environment";
+    private const string PathValueName = "Path";
 
     private static TestLocations? _testLocations;
+    private static Func<Stream?>? _cliSourceForTests;
 
     public static string ProgramFolder => _testLocations?.ProgramFolder ??
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", AppInfo.ProductName);
@@ -41,7 +52,15 @@ public static class InstallService
     public static string DesktopShortcut => Path.Combine(
         _testLocations?.DesktopFolder ?? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), $"{AppInfo.ProductName}.lnk");
 
+    /// <summary>The command line in the program folder (there only when the setup carried it).</summary>
+    public static string InstalledCli => Path.Combine(ProgramFolder, CliExecutableName);
+
+    /// <summary>The program folder is in the user's PATH, so a terminal finds thixsync-cli.</summary>
+    public static bool IsCliOnPath => PathContains(ReadUserPath() ?? "", ProgramFolder);
+
     private static string UninstallKeyPath => _testLocations?.UninstallKeyPath ?? DefaultUninstallKeyPath;
+
+    private static string EnvironmentKeyPath => _testLocations?.EnvironmentKeyPath ?? DefaultEnvironmentKeyPath;
 
     /// <summary>Installed means: the entry in "Installierte Apps" and the program file exist.</summary>
     public static bool IsInstalled
@@ -85,7 +104,8 @@ public static class InstallService
             log("Programmdatei kopiert");
         }
 
-        CreateShortcut(StartMenuShortcut, "Speicheranalyse");
+        ExtractCli(log);
+        CreateShortcut(StartMenuShortcut, "Synchronisation und Backup");
         log("Startmenü-Eintrag angelegt");
 
         // also an update writes them again: the autostart points at the installed file
@@ -112,6 +132,11 @@ public static class InstallService
         DeleteFile(StartMenuShortcut);
         DeleteFile(DesktopShortcut);
         log("Verknüpfungen entfernt");
+        if (RemoveFromUserPath(ProgramFolder))
+        {
+            log("Befehlszeile thixsync-cli aus dem PATH entfernt");
+        }
+
         Registry.CurrentUser.DeleteSubKeyTree(UninstallKeyPath, throwOnMissingSubKey: false);
         log("Eintrag unter „Installierte Apps“ entfernt");
 
@@ -145,9 +170,166 @@ public static class InstallService
     public static void StartInstalled(string arguments = "") =>
         Process.Start(new ProcessStartInfo(InstalledExecutable, arguments) { UseShellExecute = false, WorkingDirectory = ProgramFolder });
 
-    /// <summary>Redirects program folder, shortcuts and the uninstall entry for tests; null = the real places.</summary>
-    public static void UseLocationsForTests(string? programFolder, string? shortcutFolder = null, string? uninstallKeyPath = null) =>
-        _testLocations = programFolder is null ? null : new TestLocations(programFolder, shortcutFolder ?? programFolder, Path.Combine(shortcutFolder ?? programFolder, "Desktop"), uninstallKeyPath ?? @"Software\ThixSyncTests\Uninstall");
+    /// <summary>
+    /// Redirects program folder, shortcuts, the uninstall entry and the key holding the user's PATH for tests; null = the real
+    /// places. With test locations the change of the PATH is not announced to the other programs.
+    /// </summary>
+    public static void UseLocationsForTests(string? programFolder, string? shortcutFolder = null, string? uninstallKeyPath = null, string? environmentKeyPath = null) =>
+        _testLocations = programFolder is null
+            ? null
+            : new TestLocations(programFolder, shortcutFolder ?? programFolder, Path.Combine(shortcutFolder ?? programFolder, "Desktop"),
+                uninstallKeyPath ?? @"Software\ThixSyncTests\Uninstall", environmentKeyPath ?? @"Software\ThixSyncTests\Environment");
+
+    /// <summary>Another source of the embedded command line (tests); null = the resource of the running program.</summary>
+    public static void UseCliSourceForTests(Func<Stream?>? source) => _cliSourceForTests = source;
+
+    /// <summary>
+    /// Puts the command line embedded in the running program (the setup) next to ThixSync.exe. A local build carries none: nothing
+    /// happens. A thixsync-cli.exe that runs right now (a script) is moved aside first – Windows lets a running program be renamed,
+    /// not overwritten. Returns whether the command line is in place.
+    /// </summary>
+    internal static bool ExtractCli(Action<string> log)
+    {
+        using var source = (_cliSourceForTests ?? EmbeddedCli)();
+        if (source is null)
+        {
+            return false;
+        }
+
+        var fresh = InstalledCli + ".new";
+        var aside = InstalledCli + ".old";
+        DeleteFile(aside);
+        using (var target = File.Create(fresh))
+        {
+            source.CopyTo(target);
+        }
+
+        try
+        {
+            if (File.Exists(InstalledCli))
+            {
+                File.Move(InstalledCli, aside, overwrite: true);
+            }
+
+            File.Move(fresh, InstalledCli);
+            DeleteFile(aside);
+            log("Befehlszeile thixsync-cli eingerichtet");
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            Log.Warning($"Could not place the command line: {exception.Message}");
+            DeleteFile(fresh);
+            log("Die Befehlszeile thixsync-cli konnte nicht ersetzt werden");
+            return File.Exists(InstalledCli);
+        }
+    }
+
+    /// <summary>The command line on the PATH or off it (install option "cli-path"). Returns the line for the setup's log.</summary>
+    internal static string SetCliOnPath(bool wanted)
+    {
+        if (!wanted)
+        {
+            return RemoveFromUserPath(ProgramFolder) ? "Befehlszeile thixsync-cli aus dem PATH entfernt" : "Befehlszeile thixsync-cli nicht im PATH";
+        }
+
+        if (!File.Exists(InstalledCli))
+        {
+            return "Dieser Build enthält keine Befehlszeile (thixsync-cli)";
+        }
+
+        AddToUserPath(ProgramFolder);
+        return "Befehlszeile thixsync-cli im PATH (in neu geöffneten Terminals)";
+    }
+
+    /// <summary>Adds a folder to the user's PATH (HKCU\Environment) once and tells the running programs. Returns whether it was added.</summary>
+    internal static bool AddToUserPath(string folder)
+    {
+        var current = ReadUserPath() ?? "";
+        if (PathContains(current, folder))
+        {
+            return false;
+        }
+
+        WriteUserPath(WithFolder(current, folder));
+        return true;
+    }
+
+    /// <summary>Takes a folder out of the user's PATH. Returns whether it was there.</summary>
+    internal static bool RemoveFromUserPath(string folder)
+    {
+        var current = ReadUserPath();
+        if (current is null || !PathContains(current, folder))
+        {
+            return false;
+        }
+
+        WriteUserPath(WithoutFolder(current, folder));
+        return true;
+    }
+
+    /// <summary>Whether a PATH value (entries separated by ';', perhaps with %VARIABLES% or quotes) names the folder.</summary>
+    internal static bool PathContains(string pathValue, string folder) =>
+        PathEntries(pathValue).Any(entry => IsSameFolder(entry, folder));
+
+    /// <summary>The PATH value with the folder at the end (unchanged when it is there already).</summary>
+    internal static string WithFolder(string pathValue, string folder)
+    {
+        if (PathContains(pathValue, folder))
+        {
+            return pathValue;
+        }
+
+        var trimmed = pathValue.TrimEnd(';');
+        return trimmed.Length == 0 ? folder : $"{trimmed};{folder}";
+    }
+
+    /// <summary>The PATH value without the folder; every other entry stays as it was written.</summary>
+    internal static string WithoutFolder(string pathValue, string folder) =>
+        string.Join(';', PathEntries(pathValue).Where(entry => !IsSameFolder(entry, folder)));
+
+    private static Stream? EmbeddedCli() =>
+        System.Reflection.Assembly.GetEntryAssembly()?.GetManifestResourceStream(CliResourceName);
+
+    private static IEnumerable<string> PathEntries(string pathValue) =>
+        pathValue.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    private static bool IsSameFolder(string entry, string folder)
+    {
+        static string Normalize(string path) => Environment.ExpandEnvironmentVariables(path.Trim().Trim('"')).TrimEnd('\\', '/');
+        return string.Equals(Normalize(entry), Normalize(folder), StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>The user's PATH as written (%VARIABLES% not expanded); null when there is none.</summary>
+    private static string? ReadUserPath()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(EnvironmentKeyPath);
+        return key?.GetValue(PathValueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames) as string;
+    }
+
+    /// <summary>Writes the user's PATH (keeps the kind of the value, REG_EXPAND_SZ for a new one) and announces the change.</summary>
+    private static void WriteUserPath(string value)
+    {
+        using (var key = Registry.CurrentUser.CreateSubKey(EnvironmentKeyPath))
+        {
+            var kind = key.GetValueNames().Contains(PathValueName, StringComparer.OrdinalIgnoreCase)
+                ? key.GetValueKind(PathValueName)
+                : RegistryValueKind.ExpandString;
+            if (value.Length == 0)
+            {
+                key.DeleteValue(PathValueName, throwOnMissingValue: false);
+            }
+            else
+            {
+                key.SetValue(PathValueName, value, kind == RegistryValueKind.String ? RegistryValueKind.String : RegistryValueKind.ExpandString);
+            }
+        }
+
+        if (_testLocations is null)
+        {
+            Platform.Windows.EnvironmentChange.Announce();
+        }
+    }
 
     /// <summary>Asks a running ThixSync from the program folder to end, and ends it when it does not react in time.</summary>
     private static void StopRunningInstances(Action<string> log)
@@ -222,7 +404,7 @@ public static class InstallService
     {
         if (wanted)
         {
-            CreateShortcut(DesktopShortcut, "Speicheranalyse");
+            CreateShortcut(DesktopShortcut, "Synchronisation und Backup");
         }
         else
         {
@@ -280,5 +462,5 @@ public static class InstallService
         }
     }
 
-    private sealed record TestLocations(string ProgramFolder, string ShortcutFolder, string DesktopFolder, string UninstallKeyPath);
+    private sealed record TestLocations(string ProgramFolder, string ShortcutFolder, string DesktopFolder, string UninstallKeyPath, string EnvironmentKeyPath);
 }

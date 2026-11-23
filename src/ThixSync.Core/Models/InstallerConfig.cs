@@ -16,6 +16,12 @@ public sealed record InstallerConfig
     /// <summary>Install updates without asking (full auto update).</summary>
     public InstallerSwitch? AutomaticUpdates { get; init; }
 
+    /// <summary>
+    /// The command line <c>thixsync-cli</c> on the PATH (Windows: the program folder in the user's PATH; thixsync-cli.exe itself is
+    /// always put next to ThixSync.exe when the setup carries it). macOS has no such step (see <c>scripts/package-macos.sh</c>).
+    /// </summary>
+    public InstallerSwitch? CliPath { get; init; }
+
     /// <summary>The file types the app can open; each one may be associated with it. ThixSync opens no files: empty.</summary>
     public IReadOnlyList<InstallerFileType> FileTypes { get; init; } = [];
 }
@@ -38,16 +44,23 @@ public sealed record InstallerFileType
 
 /// <summary>
 /// The choices of one install: a value per option, null = not given (a first install takes the default of the
-/// <see cref="InstallerConfig"/>, an installed app keeps what it has). <see cref="FileTypes"/> lists the extensions to associate.
+/// <see cref="InstallerConfig"/>, an installed app keeps what it has). <see cref="FileTypes"/> lists the extensions to associate,
+/// <see cref="CliPath"/> puts the command line thixsync-cli on the PATH.
 /// </summary>
-public sealed record InstallChoices(bool? DesktopShortcut = null, bool? Autostart = null, bool? AutomaticUpdates = null, IReadOnlyList<string>? FileTypes = null)
+public sealed record InstallChoices(
+    bool? DesktopShortcut = null,
+    bool? Autostart = null,
+    bool? AutomaticUpdates = null,
+    IReadOnlyList<string>? FileTypes = null,
+    bool? CliPath = null)
 {
     /// <summary>These choices where given, <paramref name="fallback"/> where not.</summary>
     public InstallChoices Over(InstallChoices fallback) => new(
         DesktopShortcut ?? fallback.DesktopShortcut,
         Autostart ?? fallback.Autostart,
         AutomaticUpdates ?? fallback.AutomaticUpdates,
-        FileTypes ?? fallback.FileTypes);
+        FileTypes ?? fallback.FileTypes,
+        CliPath ?? fallback.CliPath);
 }
 
 /// <summary>What the command line of the program asks for (SETUP-05).</summary>

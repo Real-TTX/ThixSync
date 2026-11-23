@@ -249,6 +249,57 @@ public static class ConnectionService
         return Get(saved.Id);
     }
 
+    /// <summary>
+    /// Adds a connection of an export (<see cref="ExportService"/>) with its id, the same checks as <see cref="Save"/> but without a
+    /// secret – like a connection that came from the cloud, it waits for the user to enter it here. A connection bound to a computer
+    /// keeps its computer.
+    /// </summary>
+    internal static Connection Import(Connection connection)
+    {
+        AccessPolicy.EnsureConfigurationEditable();
+        var type = ConnectionCatalog.Get(connection.Kind);
+        if (!type.IsAvailable)
+        {
+            throw new BusinessException("Dieser Verbindungstyp ist auf diesem Computer nicht verfügbar.", "Kind");
+        }
+
+        AccessPolicy.EnsureConnectionKindAllowed(connection.Kind);
+        if (Find(connection.Id) is not null)
+        {
+            throw new BusinessException("Diese Verbindung gibt es schon.");
+        }
+
+        var name = connection.Name.Trim();
+        if (name.Length is 0 or > 100)
+        {
+            throw new BusinessException("Der Name fehlt oder ist zu lang (höchstens 100 Zeichen).", nameof(Connection.Name));
+        }
+
+        if (List().Any(other => string.Equals(other.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            throw new BusinessException("Eine Verbindung mit diesem Namen gibt es schon.", nameof(Connection.Name));
+        }
+
+        var settings = CleanSettings(type, connection.Settings);
+        Validate(type, settings);
+        var now = AppClock.UtcNow;
+        var imported = connection with
+        {
+            Name = name,
+            Settings = settings,
+            DeviceName = type.IsBoundToDevice ? (connection.DeviceName.Trim().Length > 0 ? connection.DeviceName.Trim() : AppInfo.MachineName) : "",
+            HasSecret = false,
+            CreateDate = now,
+            UpdateDate = now,
+            SyncState = SyncState.Pending,
+        };
+
+        SyncStore.SaveConnection(imported, null, false);
+        ChangedNow();
+        CloudSyncService.Kick();
+        return Get(imported.Id);
+    }
+
     /// <summary>Deletes a connection (everywhere). Not while a job uses it.</summary>
     public static void Delete(Guid id)
     {

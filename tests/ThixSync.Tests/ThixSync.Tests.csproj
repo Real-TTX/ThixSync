@@ -26,6 +26,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ThixSync.Core\ThixSync.Core.csproj" />
+    <!-- The command line thixsync-cli: parsing, help, exit codes, JSON, progress (CliTests). -->
+    <ProjectReference Include="..\..\src\ThixSync.Cli\ThixSync.Cli.csproj" />
   </ItemGroup>
 
 </Project>
