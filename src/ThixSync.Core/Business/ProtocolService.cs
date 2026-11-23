@@ -164,6 +164,11 @@ public static class ProtocolService
         return days <= 0 ? 0 : SyncStore.DeleteRunsBefore(AppClock.UtcNow.AddDays(-days));
     }
 
+    /// <summary>Another process changed the database (<see cref="StoreWatcher"/>): the lists reload (no particular run).</summary>
+    public static event EventHandler? ExternalChange;
+
+    internal static void NotifyExternalChange() => ExternalChange?.Invoke(null, EventArgs.Empty);
+
     /// <summary>The runner tells about a written run.</summary>
     internal static void Notify(SyncRun run) => Changed?.Invoke(null, run);
 }

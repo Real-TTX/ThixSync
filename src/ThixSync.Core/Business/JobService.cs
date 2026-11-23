@@ -16,6 +16,7 @@ public static class JobService
 
     private static readonly Lock Gate = new();
     private static List<SyncJob>? _cache;
+    private static long _cacheVersion;
 
     /// <summary>Raised after any change (any thread).</summary>
     public static event EventHandler? Changed;
@@ -24,7 +25,14 @@ public static class JobService
     {
         lock (Gate)
         {
-            return _cache ??= SyncStore.LoadJobs();
+            var version = SyncStore.DataVersion();
+            if (_cache is null || version != _cacheVersion)
+            {
+                _cache = SyncStore.LoadJobs();
+                _cacheVersion = version;
+            }
+
+            return _cache;
         }
     }
 

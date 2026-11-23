@@ -528,6 +528,20 @@ internal static class SyncStore
         }
     }
 
+    /// <summary>
+    /// A number that changes when ANOTHER process (the CLI, a second app instance) committed a change to the database since the last
+    /// call (SQLite's data_version). The services compare it to drop their caches.
+    /// </summary>
+    public static long DataVersion()
+    {
+        lock (Gate)
+        {
+            using var command = Connection.CreateCommand();
+            command.CommandText = "PRAGMA data_version";
+            return Convert.ToInt64(command.ExecuteScalar());
+        }
+    }
+
     /// <summary>Closes the database (exit, tests).</summary>
     public static void Close()
     {

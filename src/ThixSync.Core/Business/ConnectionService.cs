@@ -14,6 +14,7 @@ public static class ConnectionService
 {
     private static readonly Lock Gate = new();
     private static List<Connection>? _cache;
+    private static long _cacheVersion;
 
     /// <summary>Raised after any change (any thread).</summary>
     public static event EventHandler? Changed;
@@ -23,7 +24,14 @@ public static class ConnectionService
     {
         lock (Gate)
         {
-            return _cache ??= SyncStore.LoadConnections();
+            var version = SyncStore.DataVersion();
+            if (_cache is null || version != _cacheVersion)
+            {
+                _cache = SyncStore.LoadConnections();
+                _cacheVersion = version;
+            }
+
+            return _cache;
         }
     }
 
@@ -440,6 +448,9 @@ public static class ConnectionService
         SyncStore.SaveConnectionSettings(id, connection.With(key, value).Settings);
         ChangedNow();
     }
+
+    /// <summary>Another process changed the database (<see cref="StoreWatcher"/>).</summary>
+    internal static void NotifyExternalChange() => ChangedNow();
 
     internal static void ResetForTests()
     {
