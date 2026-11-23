@@ -29,4 +29,14 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      MEGA (Storage/Providers/Mega): MegaApiClient (gpailler, MIT) does MEGA's client-side encryption, sign-in and transfers.
+      It asks for Newtonsoft.Json 10, which has a known vulnerability (GHSA-5crp-9r3c-p9vr): 13.x (MIT) is referenced instead.
+      S3, Azure and pCloud are plain REST code of their own (no SDK).
+    -->
+    <PackageReference Include="MegaApiClient" Version="1.10.5" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+  </ItemGroup>
+
 </Project>
