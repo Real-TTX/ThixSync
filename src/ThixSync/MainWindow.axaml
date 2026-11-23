@@ -6,24 +6,24 @@
                Title="ThixSync" Width="1280" Height="820" MinWidth="900" MinHeight="560"
                WindowStartupLocation="CenterScreen">
   <!--
-    The one window of ThixSync in MatDesktop's chrome: the title bar (DESK-03: logo and word mark, a running analysis in the
-    middle, the caption buttons on Windows, the traffic lights on macOS), the menu (DESK-04: Karte, Quellen, Analysen, Settings
-    below a line, at its foot the cloud state, the version = About and the fold to a rail) and the page.
+    The one window of ThixSync in MatDesktop's chrome: the title bar (DESK-03: logo and word mark, the running jobs in the middle, the
+    caption buttons on Windows, the traffic lights on macOS), the menu (DESK-04: Synchronisationen, Geräte, Zeitpläne, Protokolle,
+    Einstellungen below a line, at its foot the cloud state, the version = About and the fold to a rail) and the page.
   -->
   <Grid RowDefinitions="Auto,*">
     <mat:MatTitleBar x:Name="TitleBar" AppName="ThixSync">
       <mat:MatTitleBar.WordMark>
         <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource Mat.FontSizeXl}" FontWeight="SemiBold">
-          <Run Text="Thix" /><Run Text="Space" Foreground="{DynamicResource Mat.AccentText}" />
+          <Run Text="Thix" /><Run Text="Sync" Foreground="{DynamicResource Mat.AccentText}" />
         </TextBlock>
       </mat:MatTitleBar.WordMark>
       <mat:MatTitleBar.Center>
-        <!-- A running analysis: always in sight, also on the other pages (a click shows the map) -->
-        <Button x:Name="ScanStatus" Theme="{StaticResource MatButton.Ghost}" IsVisible="False" Click="OnScanStatusClick" HorizontalAlignment="Center"
-                AutomationProperties.Name="Laufende Analyse">
+        <!-- Running jobs: always in sight, also on the other pages (a click shows the tab "Aktivität") -->
+        <Button x:Name="RunStatus" Theme="{StaticResource MatButton.Ghost}" IsVisible="False" Click="OnRunStatusClick" HorizontalAlignment="Center"
+                AutomationProperties.Name="Laufende Aufträge">
           <StackPanel Orientation="Horizontal" Spacing="10">
-            <ProgressBar x:Name="ScanProgress" Theme="{StaticResource MatProgress}" Width="120" Height="5" Maximum="1" VerticalAlignment="Center" />
-            <TextBlock x:Name="ScanText" VerticalAlignment="Center" MaxWidth="460" TextTrimming="CharacterEllipsis" />
+            <controls:Spinner Width="16" Height="16" VerticalAlignment="Center" />
+            <TextBlock x:Name="RunText" VerticalAlignment="Center" MaxWidth="460" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource Mat.Text}" />
           </StackPanel>
         </Button>
       </mat:MatTitleBar.Center>

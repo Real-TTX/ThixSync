@@ -8,6 +8,7 @@ using MatDesktop;
 using ThixSync.Core.Business;
 using ThixSync.Core.Infrastructure;
 using ThixSync.Core.Models;
+using ThixSync.Core.Remote;
 using TrayIcon = ThixSync.Tray.TrayIcon;
 
 namespace ThixSync;
@@ -17,14 +18,15 @@ namespace ThixSync;
 ///  - Windows: the published ThixSync.exe is also its setup (RunSetupIfRequested).
 ///  - The look is MatDesktop's theme with ThixSync's accent (DESK-02).
 ///  - One instance per user and data folder (MatSingleInstance, DESK-05): a second start opens the window of the first one.
-///  - "--autostart" (sign-in) and "--tray" (after an update) start hidden in the tray / menu bar; the automatic analyses run there.
+///  - "--autostart" (sign-in) and "--tray" (after an update) start hidden in the tray / menu bar; the scheduler and Remote run there.
+///  - First start: "Dieser Computer" becomes a connection. Then the scheduler, ThixSync Remote and the cloud sync start; the end stops them.
 /// </summary>
 public partial class App : Application
 {
     public const string TrayArgument = "--tray";
 
     /// <summary>ThixSync's accent (IDENT-01): MatDesktop derives every accent token of light and dark from it.</summary>
-    public const string Accent = "#0E8074";
+    public const string Accent = "#1A5FD6";
 
     private IClassicDesktopStyleApplicationLifetime? _desktop;
     private MatSingleInstance? _instance;
@@ -92,9 +94,10 @@ public partial class App : Application
     /// <summary>Installed by ThixLauncher: its sign-in at MatCloud goes along (in the background; a cloud that does not answer changes nothing).</summary>
     private async Task ConnectFromLauncherAsync()
     {
-        if (await Task.Run(() => SyncService.ConnectFromLauncherAsync()) is { } account)
+        if (await Task.Run(() => CloudSyncService.ConnectFromLauncherAsync()) is { } account)
         {
-            Ui.Post(() => _trayIcon?.ShowNotification("Mit der MatCloud verbunden", $"ThixSync gleicht deine Quellen und Analysen jetzt mit der MatCloud ab (Konto {account}, angemeldet von ThixLauncher)."));
+            Ui.Post(() => _trayIcon?.ShowNotification("Mit der MatCloud verbunden",
+                $"ThixSync gleicht deine Aufträge und Verbindungen jetzt mit der MatCloud ab (Konto {account}, angemeldet von ThixLauncher)."));
         }
     }
 
@@ -104,16 +107,36 @@ public partial class App : Application
         UiWatchdog.Start();
         Log.Info($"ThixSync {AppInfo.Version} starting on {UpdateService.PlatformKey} ({string.Join(' ', args)})");
 
-        SourceService.OfferDrivesOnce();
+        // First start: this computer becomes a connection ("Dieser Computer").
+        if (!SettingsService.Get().FirstStartDone)
+        {
+            ConnectionService.EnsureThisComputer();
+            SettingsService.Remember(settings => settings with { FirstStartDone = true });
+        }
+
         ApplyTheme(SettingsService.Get().Theme);
         SettingsService.Changed += (_, settings) => Ui.Post(() => ApplyTheme(settings.Theme));
+        OAuthService.OpenBrowser = Ui.OpenExternal;
+        RunMonitor.Start();
 
         _mainWindow = new MainWindow();
         _trayIcon = new TrayIcon(this);
 
-        SyncService.Start();
-        AutoScanService.Start();
+        CloudSyncService.Start();
+        SchedulerService.Start();
+        RemoteServer.Start();
         _ = ConnectFromLauncherAsync();
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                ProtocolService.Cleanup();
+            }
+            catch (Exception exception) when (exception is IOException or InvalidOperationException or System.Data.Common.DbException)
+            {
+                Log.Warning($"Protocol cleanup failed: {exception.Message}");
+            }
+        });
 
         var startHidden = args.Contains(TrayArgument) || args.Contains(AutostartService.StartupArgument);
         if (!startHidden)
@@ -146,48 +169,63 @@ public partial class App : Application
         };
         UpdateCoordinator.Start();
 
-        // An analysis that ran by itself: say what changed (TRAY-04: only what the user did not cause).
-        AutoScanService.Completed += (_, result) => Ui.Post(() =>
-        {
-            if (!SettingsService.Get().NotifyChanges)
-            {
-                return;
-            }
-
-            var analysis = result.Analysis;
-            var text = result.Delta is { } delta
-                ? $"{analysis.SourceName}: {Ui.FormatSize(analysis.TotalBytes)} ({Ui.FormatDelta(delta)} seit der letzten Analyse)."
-                : $"{analysis.SourceName}: {Ui.FormatSize(analysis.TotalBytes)} in {Ui.FormatCount(analysis.FileCount)} Dateien.";
-            _trayIcon?.ShowNotification("Analyse fertig", text, navigate: window => window.ShowMap(analysis.SourceId, analysis.Id));
-        });
-
-        // An analysis the user started, finished while the window was hidden.
-        ScanService.Finished += (_, result) => Ui.Post(() =>
-        {
-            if (result.Analysis is { } analysis && !result.Job.IsAutomatic && _mainWindow is { IsVisible: false })
-            {
-                _trayIcon?.ShowNotification("Analyse fertig", $"{analysis.SourceName}: {Ui.FormatSize(analysis.TotalBytes)} in {Ui.FormatCount(analysis.FileCount)} Dateien.",
-                    navigate: window => window.ShowMap(analysis.SourceId, analysis.Id));
-            }
-        });
+        // A run that ended: tell about it as the setting says (TRAY-04: what the user started and watches needs no notification).
+        JobRunner.RunFinished += (_, run) => Ui.Post(() => NotifyRun(run));
 
         // After sleep, a network change or a new Wi-Fi the cloud is asked at once.
         NetworkChange.NetworkAvailabilityChanged += (_, availability) =>
         {
             if (availability.IsAvailable)
             {
-                SyncService.Kick();
+                CloudSyncService.Kick();
             }
         };
-        NetworkChange.NetworkAddressChanged += (_, _) => SyncService.Kick();
+        NetworkChange.NetworkAddressChanged += (_, _) => CloudSyncService.Kick();
 
-        SyncService.StatusChanged += (_, status) =>
+        CloudSyncService.StatusChanged += (_, status) =>
         {
             if (status.State == CloudState.SignedOut)
             {
                 Ui.Post(() => _trayIcon?.ShowNotification("MatCloud", status.Message, isWarning: true));
             }
         };
+    }
+
+    /// <summary>A notification about a finished run, by <see cref="AppSettings.Notify"/>: never, on problems, or also on changes.</summary>
+    private void NotifyRun(SyncRun run)
+    {
+        if (ShouldNotify(run, SettingsService.Get().Notify, _mainWindow is { IsVisible: true, IsActive: true }) is not { } kind)
+        {
+            return;
+        }
+
+        var (word, _, _) = JobStatus.OfOutcome(run.Outcome);
+        var text = run.Summary.Length > 0 ? run.Summary : word;
+        var runId = run.Id;
+        _trayIcon?.ShowNotification(kind == RunNotice.Problem ? $"{run.JobName}: {word}" : run.JobName, text, isWarning: kind == RunNotice.Problem,
+            navigate: window => window.ShowRun(runId));
+    }
+
+    /// <summary>Whether a finished run is worth a notification (null: no). A run started by hand while the window is in front needs none.</summary>
+    internal static RunNotice? ShouldNotify(SyncRun run, NotifyChoice choice, bool userIsWatching)
+    {
+        if (choice == NotifyChoice.Never || run.Outcome is RunOutcome.Analysed or RunOutcome.Cancelled or RunOutcome.Running)
+        {
+            return null;
+        }
+
+        if (run.Trigger == RunTrigger.Manual && userIsWatching)
+        {
+            return null;
+        }
+
+        if (run.Outcome is RunOutcome.Failed or RunOutcome.Warnings or RunOutcome.NeedsConfirmation)
+        {
+            return RunNotice.Problem;
+        }
+
+        var changed = run.FilesCopied + run.FilesDeleted + run.FilesMoved > 0;
+        return choice == NotifyChoice.Changes && changed ? RunNotice.Changes : null;
     }
 
     /// <summary>Opens the main window (tray, second start, Dock) and optionally navigates.</summary>
@@ -232,9 +270,16 @@ public partial class App : Application
             }
         }
 
-        Step("analysis", () => ScanService.Current?.Cancel());
-        Step("automatic analyses", AutoScanService.Stop);
-        Step("sync", SyncService.Stop);
+        Step("scheduler", SchedulerService.Stop);
+        Step("running jobs", () =>
+        {
+            foreach (var progress in RunMonitor.Running)
+            {
+                RunMonitor.Cancel(progress.JobId);
+            }
+        });
+        Step("remote", RemoteServer.Stop);
+        Step("cloud sync", CloudSyncService.Stop);
         Step("tray icon", () => _trayIcon?.Dispose());
         if (_mainWindow is not null)
         {
@@ -242,7 +287,7 @@ public partial class App : Application
             Step("main window", _mainWindow.Close);
         }
 
-        Step("database", SpaceStore.Close);
+        Step("database", Database.Close);
         _instance?.Dispose();
         Log.Info($"ThixSync ended after {watch.ElapsedMilliseconds} ms");
         _desktop?.Shutdown(0);
@@ -413,4 +458,11 @@ public partial class App : Application
 
         _trayIcon?.ShowNotification("Unerwarteter Fehler", $"{e.Exception.Message} – Details im Protokoll ({AppPaths.LogDirectory}).", isWarning: true);
     }
+}
+
+/// <summary>What a notification about a finished run says: a problem, or that something changed.</summary>
+internal enum RunNotice
+{
+    Problem,
+    Changes,
 }

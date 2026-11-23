@@ -3,21 +3,21 @@ using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Styling;
 using Avalonia.Threading;
-using MatCloud.Contract;
 using MatDesktop;
 using ThixSync.Core.Business;
 using ThixSync.Core.Infrastructure;
-using ThixSync.Core.Models;
-using ThixSync.Core.Platform;
+using ThixSync.Core.Remote;
+using ThixSync.Pages;
 
 namespace ThixSync;
 
 /// <summary>
-/// "ThixSync --snapshot &lt;folder&gt;": draws the windows of ThixSync into PNG files without a screen (Avalonia headless
-/// with Skia, the real windows, themes and fonts of the machine), in light and dark, at 1x and their natural size – the
-/// pictures of the design system and of docs/images, in MatDesktop's look. It works in a temporary data folder (Program sets it) filled with
-/// the sample sources and analyses, with a pinned clock, version 1.0.0 on the release channel and a fixed computer name: no real
-/// drive, tray icon, registry value, network or update check is touched.
+/// "ThixSync --snapshot &lt;folder&gt;": draws the windows of ThixSync into PNG files without a screen (Avalonia headless with Skia, the
+/// real windows, themes and fonts of the machine), in light and dark, at 1x and their natural size – the pictures of docs/images and of
+/// ThixLauncher's store, in MatDesktop's look. It works in a temporary data folder (Program sets it) filled with <see cref="SampleSync"/>
+/// (connections of every group, the four jobs of the mockup, two weeks of runs), with a pinned clock, version 1.0.0 on the release
+/// channel and a fixed computer name; the running state and the plan with conflicts are shown without an engine. No real drive, tray
+/// icon, registry value, network or update check is touched.
 /// </summary>
 internal static class Snapshot
 {
@@ -39,18 +39,29 @@ internal static class Snapshot
 
     private static readonly string[] Themes = ["light", "dark"];
 
+    private static readonly string[] JobFormTabs = [JobForm.GeneralTab, JobForm.PairsTab, JobForm.FilterTab, JobForm.ScheduleTab, JobForm.OptionsTab];
+
+    private static readonly string[] SettingsTabs = [SettingsPage.GeneralTab, SettingsPage.TransferTab, SettingsPage.RemoteTab, SettingsPage.CloudTab, SettingsPage.UpdatesTab, SettingsPage.AdvancedTab];
+
     private static readonly string[] ThemedPictures =
     [
         "setup-welcome", "setup-options", "setup-progress", "setup-finish", "setup-update", "setup-uninstall",
-        "main-map", "main-map-changes", "main-sources", "main-source", "main-analyses", "main-settings", "main-cloud", "main-cloud-code", "main-about", "main-folded", "toast",
+        "main-jobs", "main-jobs-running", "main-activity", "main-overview",
+        .. JobFormTabs.Select(tab => $"main-job-form-{tab}"),
+        "main-job-details", "main-job-history", "main-connections", "main-connection-types", "main-connection-form", "main-schedules", "main-protocol", "main-run",
+        .. SettingsTabs.Select(tab => $"main-settings-{tab}"),
+        "main-about", "main-folded", "toast",
     ];
 
     /// <summary>Every file a snapshot writes (the tray icons are the same in both themes).</summary>
     public static IReadOnlyList<string> FileNames { get; } =
     [
         .. ThemedPictures.SelectMany(name => Themes.Select(theme => $"{name}-{theme}.png")),
-        "tray-icon-windows.png", "tray-icon-windows-scanning.png", "tray-icon-macos.png", "tray-icon-macos-scanning.png",
+        "tray-icon-windows.png", "tray-icon-windows-running.png", "tray-icon-macos.png", "tray-icon-macos-running.png",
     ];
+
+    /// <summary>True while the pictures are drawn (a page shows the state of a service that does not run here, e.g. Remote listening).</summary>
+    public static bool IsDrawing { get; private set; }
 
     /// <summary>The command: sets Avalonia up headless, draws every picture into the folder, ends with 0 (all written) or 1.</summary>
     public static int Run(string[] args)
@@ -92,7 +103,7 @@ internal static class Snapshot
         }
 
         // The temporary data folder goes again.
-        SpaceStore.Close();
+        Database.Close();
         try
         {
             Directory.Delete(AppPaths.DataDirectory, recursive: true);
@@ -115,8 +126,9 @@ internal static class Snapshot
         var previousTheme = Application.Current!.RequestedThemeVariant;
         using (Isolate())
         {
-            AnalysisService.ResetForTests();
-            SampleSpace.Create();
+            ConnectionService.ResetForTests();
+            JobService.ResetForTests();
+            SampleSync.Create();
             foreach (var theme in Themes)
             {
                 Application.Current.RequestedThemeVariant = theme == "dark" ? ThemeVariant.Dark : ThemeVariant.Light;
@@ -196,60 +208,96 @@ internal static class Snapshot
         window.ShowFromTray();
         window.Width = settings.WindowWidth;
         window.Height = settings.WindowHeight;
-        window.ShowMap(SampleSpace.DriveId);
-        Settle(window, waitLonger: true);
 
-        // The map of C: compared with a week ago, the Videos folder chosen.
-        var map = window.MapPage;
-        if (map.Analysis is { } analysis && AnalysisService.LoadTree(analysis.Id) is { } tree && tree.FindByKey("Users/Anna/Videos") is { } videos)
+        // Synchronisationen: the cards like the mockup, then two jobs running (the newest first) and their live panels
+        window.ShowJobs(JobsPage.JobsTab);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"main-jobs-{theme}.png", report);
+
+        foreach (var progress in SampleSync.RunningProgress())
         {
-            map.SelectNode(videos);
+            RunMonitor.Show(progress);
         }
 
+        window.JobsPage.SortChoice.SelectedIndex = 1;
         Settle(window, waitLonger: true);
-        Save(window, folder, $"main-map-{theme}.png", report);
+        Save(window, folder, $"main-jobs-running-{theme}.png", report);
+        window.JobsPage.SortChoice.SelectedIndex = 0;
 
-        // The same map coloured by what changed, with the list of changes.
-        map.SetColoring(MapColoring.ByChange);
-        map.SelectListTab(2);
+        window.ShowActivity();
         Settle(window, waitLonger: true);
-        Save(window, folder, $"main-map-changes-{theme}.png", report);
-        map.SetColoring(MapColoring.ByType);
-        map.SelectListTab(0);
+        Save(window, folder, $"main-activity-{theme}.png", report);
+        RunMonitor.Clear();
 
-        window.ShowSources();
+        window.ShowJobs(JobsPage.OverviewTab);
+        Settle(window, waitLonger: true);
+        Save(window, folder, $"main-overview-{theme}.png", report);
+        window.ShowJobs(JobsPage.JobsTab);
+
+        // The form of "Dokumente & Fotos", every tab
+        foreach (var tab in JobFormTabs)
+        {
+            window.ShowJobs();
+            window.ShowJobForm(SampleSync.DocumentsJobId, tab);
+            Settle(window);
+            Save(window, folder, $"main-job-form-{tab}-{theme}.png", report);
+        }
+
+        // The details of "Projekte NAS": the preview of an analysis with conflicts, then its history
+        window.ShowJobs();
+        window.ShowJobDetails(SampleSync.ProjectsJobId);
+        window.JobDetailsPage.ShowPlan(SampleSync.Plan());
         Settle(window);
-        Save(window, folder, $"main-sources-{theme}.png", report);
-
-        window.SourcesPage.ShowEdit(SampleSpace.NasId);
+        Save(window, folder, $"main-job-details-{theme}.png", report);
+        window.ShowJobs();
+        window.ShowJobDetails(SampleSync.ProjectsJobId, JobDetailsPage.HistoryTab);
         Settle(window);
-        Save(window, folder, $"main-source-{theme}.png", report);
-        window.SourcesPage.ShowList();
+        Save(window, folder, $"main-job-history-{theme}.png", report);
 
-        window.ShowAnalyses();
+        // Geräte: the list, the type picker, the form of the NAS
+        window.ShowConnections();
         Settle(window);
-        Save(window, folder, $"main-analyses-{theme}.png", report);
-
-        window.ShowSettings(Pages.SettingsPage.AnalysisTab);
+        Save(window, folder, $"main-connections-{theme}.png", report);
+        window.ShowConnectionForm(null);
         Settle(window);
-        Save(window, folder, $"main-settings-{theme}.png", report);
+        Save(window, folder, $"main-connection-types-{theme}.png", report);
+        window.ShowConnections();
+        window.ShowConnectionForm(SampleSync.NasId);
+        Settle(window);
+        Save(window, folder, $"main-connection-form-{theme}.png", report);
 
-        // The cloud tab: the sign-in in the browser first, then the code it shows while the person confirms it there (no network: the code is
-        // a fixed one).
-        window.ShowSettings(Pages.SettingsPage.CloudTab);
+        window.ShowSchedules();
+        Settle(window);
+        Save(window, folder, $"main-schedules-{theme}.png", report);
+
+        window.ShowProtocol();
+        Settle(window);
+        Save(window, folder, $"main-protocol-{theme}.png", report);
+        window.ShowRun(SampleSync.DocumentsRunId);
+        Settle(window);
+        Save(window, folder, $"main-run-{theme}.png", report);
+
+        // Einstellungen, every tab: Remote with a pairing code, Cloud with the address typed
         var settingsPage = window.SettingsPage;
         settingsPage.ServerUrlBox.Text = CloudAddress;
-        Settle(window);
-        Save(window, folder, $"main-cloud-{theme}.png", report);
-        settingsPage.ShowBrowserCode(new DeviceLinkStart("KXQ4-7MPA", $"{CloudAddress}/Connect?code=KXQ4-7MPA", "", 600, 2));
-        Settle(window);
-        Save(window, folder, $"main-cloud-code-{theme}.png", report);
-        settingsPage.ShowSignInWay(password: false);
-        Settle(window);
+        foreach (var tab in SettingsTabs)
+        {
+            window.ShowSettings(tab);
+            if (tab == SettingsPage.RemoteTab)
+            {
+                settingsPage.ShowPairingCode(new PairingCode("482 913", Moment.AddMinutes(5)));
+            }
+
+            // the data folder of a typical installation, not the temporary one of the pictures
+            settingsPage.DataFolderRow.Description = OperatingSystem.IsMacOS() ? "/Users/anna/Library/Application Support/ThixSync" : DataFolder;
+
+            Settle(window);
+            Save(window, folder, $"main-settings-{tab}-{theme}.png", report);
+        }
 
         // The about page tells this machine's system and folder: the pictures show a typical installation instead.
         window.ShowAbout();
-        var about = (Pages.AboutPage)window.CurrentPage!;
+        var about = (AboutPage)window.CurrentPage!;
         about.SystemText.Text = OperatingSystem.IsMacOS()
             ? $"macOS 15.5 ({UpdateService.PlatformKey}), .NET 10.0.0"
             : $"Microsoft Windows 10.0.26100 ({UpdateService.PlatformKey}), .NET 10.0.0";
@@ -257,7 +305,7 @@ internal static class Snapshot
         Settle(window);
         Save(window, folder, $"main-about-{theme}.png", report);
 
-        window.ShowMap();
+        window.ShowJobs();
         window.ToggleSidebar();
         Settle(window, waitLonger: true);
         Save(window, folder, $"main-folded-{theme}.png", report);
@@ -270,7 +318,7 @@ internal static class Snapshot
 
     private static void RenderToast(string folder, string theme, SnapshotReport report)
     {
-        var toast = MatNotification.Show("Update verfügbar", "ThixSync 1.0.1 kann installiert werden (Einstellungen › Updates).");
+        var toast = MatNotification.Show("Fotos Backup: Fehlgeschlagen", "Ziel nicht erreichbar: der Bucket antwortet nicht (Zeitüberschreitung).", isWarning: true);
         Settle(toast);
         Save(toast, folder, $"toast-{theme}.png", report);
         toast.Close();
@@ -278,17 +326,17 @@ internal static class Snapshot
     }
 
     /// <summary>
-    /// The tray / menu bar icons at 64 px, as MatDesktop draws them (TRAY-02): the mark with the dot of the state – running
-    /// green, analysing in the accent – and on macOS the template image.
+    /// The tray / menu bar icons at 64 px, as MatDesktop draws them (TRAY-02): the mark with the dot of the state – ready green,
+    /// running in the accent – and on macOS the template image.
     /// </summary>
     private static void RenderTrayIcons(string folder, SnapshotReport report)
     {
         foreach (var (template, platform) in new[] { (false, "windows"), (true, "macos") })
         {
-            foreach (var scanning in new[] { false, true })
+            foreach (var running in new[] { false, true })
             {
-                var name = scanning ? $"tray-icon-{platform}-scanning.png" : $"tray-icon-{platform}.png";
-                var state = scanning ? MatState.Custom("Analysiert System (C:) …", "--mat-accent", MatStateMark.Dot) : MatState.Running;
+                var name = running ? $"tray-icon-{platform}-running.png" : $"tray-icon-{platform}.png";
+                var state = running ? MatState.Custom("Synchronisiert 2 Aufträge …", "--mat-accent", MatStateMark.Dot) : MatState.Running;
                 using var mark = Tray.TrayIcon.Mark(template);
                 File.WriteAllBytes(Path.Combine(folder, name), MatTrayIcons.Png(mark, state, template));
                 report.Written.Add(name);
@@ -321,6 +369,7 @@ internal static class Snapshot
     /// <summary>Pins clock, version and computer name and keeps tokens, policies and autostart in memory.</summary>
     private static IDisposable Isolate()
     {
+        IsDrawing = true;
         AppClock.Pin(Moment);
         AppInfo.Pin(Version, Channel, buildNumber: 0, MachineName);
         AutostartService.UseInMemoryEntry(true);
@@ -328,11 +377,14 @@ internal static class Snapshot
         AccessPolicy.UsePolicyReaderForTests(_ => false);
         return new Restore(() =>
         {
+            RunMonitor.Clear();
+            Core.Storage.StorageProviders.OverrideForTests(null, null);
             AccessPolicy.UsePolicyReaderForTests(null);
             TokenStore.UseMemoryForTests(false);
             AutostartService.UseInMemoryEntry(null);
             AppInfo.Pin(null);
             AppClock.Pin(null);
+            IsDrawing = false;
         });
     }
 

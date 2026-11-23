@@ -7,7 +7,7 @@ using ThixSync.Core.Infrastructure;
 
 namespace ThixSync.Pages;
 
-/// <summary>Version and channel ("Version 1.0.0 · release", SETUP-07), build and where the data lives.</summary>
+/// <summary>What ThixSync is, version and channel ("Version 1.0.0 · release", SETUP-07), build, system, where the data lives and the licences.</summary>
 public partial class AboutPage : UserControl
 {
     public AboutPage()
@@ -15,6 +15,7 @@ public partial class AboutPage : UserControl
         InitializeComponent();
         VersionText.Text = MatVersion.Format(AppInfo.Version, AppInfo.Channel);
         BuildText.Text = AppInfo.BuildNumber > 0 ? $"#{AppInfo.BuildNumber}" : "–";
+        ChannelText.Text = AppInfo.Channel switch { "release" => "Release (stabil)", "nightly" => "Nightly (Vorschau)", _ => "Lokaler Build" };
         SystemText.Text = $"{RuntimeInformation.OSDescription} ({UpdateService.PlatformKey}), .NET {Environment.Version}";
         DataText.Text = AppPaths.DataDirectory;
         AttachedToVisualTree += (_, _) => RefreshUpdate();
@@ -28,12 +29,12 @@ public partial class AboutPage : UserControl
         var available = result is { IsUpdateAvailable: true, Manifest: not null };
         UpdateTitle.Text = available ? $"Version {result!.Manifest!.Version} ist verfügbar" : AppInfo.IsLocalBuild ? "Lokaler Build" : "Updates";
         UpdateText.Text = available
-            ? "Installieren dauert nur einen Moment, deine Quellen und Analysen bleiben erhalten."
+            ? "Installieren dauert nur einen Moment, deine Aufträge und Verbindungen bleiben erhalten."
             : AppInfo.IsLocalBuild
                 ? MatVersion.LocalNote(AppInfo.Channel)
                 : result is null
                     ? "Noch nicht geprüft."
-                    : $"{result.Message} Zuletzt geprüft: {(UpdateService.LastCheck is { } last ? Ui.FormatDateTime(last) : "–")}.";
+                    : $"{result.Message} Zuletzt geprüft: {(UpdateService.LastCheck is { } last ? Controls.Formats.When(last) : "–")}.";
         UpdateLabel.Text = available ? "Update installieren …" : "Nach Updates suchen …";
         if (available)
         {
@@ -61,7 +62,7 @@ public partial class AboutPage : UserControl
     {
         if (Ui.WindowOf(this) is MainWindow window)
         {
-            window.ShowMap();
+            window.GoBack();
         }
     }
 }

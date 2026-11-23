@@ -6,7 +6,7 @@
   <!-- About ThixSync: reached through the version at the foot of the menu (DESK-04); the version reads as everywhere (SETUP-07). -->
   <Border Background="{DynamicResource Mat.Surface}">
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel Margin="28,22" MaxWidth="640" HorizontalAlignment="Left" Spacing="18">
+      <StackPanel Margin="36,28" MaxWidth="680" HorizontalAlignment="Left" Spacing="18">
         <TextBlock Text="Über ThixSync" Theme="{StaticResource MatText.PageTitle}" />
         <Border Theme="{StaticResource MatCard}" Padding="24">
           <StackPanel Spacing="18">
@@ -14,9 +14,9 @@
               <Image Source="/Assets/logo-256.png" Width="88" Height="88" RenderOptions.BitmapInterpolationMode="HighQuality" />
               <StackPanel VerticalAlignment="Center" Spacing="4">
                 <TextBlock FontSize="{DynamicResource Mat.FontSize2xl}" FontWeight="SemiBold">
-                  <Run Text="Thix" /><Run Text="Space" Foreground="{DynamicResource Mat.AccentText}" />
+                  <Run Text="Thix" /><Run Text="Sync" Foreground="{DynamicResource Mat.AccentText}" />
                 </TextBlock>
-                <TextBlock Text="Speicheranalyse für Windows und macOS" Theme="{StaticResource MatText.Muted}" />
+                <TextBlock Text="Dateien sichern und abgleichen – für Windows und macOS" Theme="{StaticResource MatText.Muted}" />
                 <SelectableTextBlock x:Name="VersionText" FontSize="{DynamicResource Mat.FontSizeSm}" />
               </StackPanel>
             </StackPanel>
@@ -34,16 +34,18 @@
               </Grid>
             </Border>
             <TextBlock TextWrapping="Wrap" LineHeight="21"
-                       Text="ThixSync analysiert Laufwerke und Netzwerkfreigaben (SMB) und zeigt auf einer interaktiven Karte, was wie viel Platz belegt. Dateien und Ordner öffnest oder löschst du direkt dort. Jede Analyse bleibt gespeichert, so siehst du, was seit der letzten gewachsen oder geschrumpft ist – mit MatCloud auf all deinen Computern." />
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
-              <TextBlock Text="Build" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
-              <TextBlock Grid.Column="1" x:Name="BuildText" Margin="0,3" />
+                       Text="ThixSync hält Ordner gleich und sichert sie: bidirektional, als Spiegel oder als Backup mit Versionen – zwischen diesem Computer, externen Laufwerken, NAS und Servern (SMB, SFTP, FTP, WebDAV), Cloud-Speichern (S3, Google Drive, OneDrive, Dropbox …) und anderen Computern mit ThixSync. Nach Zeitplan, bei Änderungen oder auf Knopfdruck, mit Vorschau, Konfliktlösung und Protokoll. Mit MatCloud sind deine Aufträge und Verbindungen auf allen Geräten gleich." />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+              <TextBlock Text="Kanal" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Column="1" x:Name="ChannelText" Margin="0,3" />
+              <TextBlock Grid.Row="3" Text="Build" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="3" Grid.Column="1" x:Name="BuildText" Margin="0,3" />
               <TextBlock Grid.Row="1" Text="System" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
               <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SystemText" Margin="0,3" TextWrapping="Wrap" />
               <TextBlock Grid.Row="2" Text="Daten" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
               <SelectableTextBlock Grid.Row="2" Grid.Column="1" x:Name="DataText" Margin="0,3" TextWrapping="Wrap" />
             </Grid>
-            <TextBlock Text="© Matthias Schmoldt. Gestaltung und Symbole: MatDesign (Symbole: Lucide, ISC-Lizenz)." Theme="{StaticResource MatText.Faint}" />
+            <TextBlock Text="© Matthias Schmoldt. Gestaltung und Symbole: MatDesign (Symbole: Lucide, ISC-Lizenz). Avalonia (MIT), SQLite (gemeinfrei), Microsoft.Data.Sqlite und .NET (MIT)." TextWrapping="Wrap" Theme="{StaticResource MatText.Faint}" />
           </StackPanel>
         </Border>
         <controls:ActionBar>
@@ -51,7 +53,7 @@
             <controls:IconLabel Icon="external" Text="Projekt auf GitHub" />
           </Button>
           <Button Click="OnBackClick">
-            <controls:IconLabel Icon="grid" Text="Zurück zur Karte" />
+            <controls:IconLabel Icon="back" Text="Zurück" />
           </Button>
         </controls:ActionBar>
       </StackPanel>

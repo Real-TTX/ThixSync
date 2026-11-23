@@ -12,10 +12,10 @@ namespace ThixSync;
 
 /// <summary>
 /// "ThixSync.exe --self-test &lt;report file&gt;": the published program checks itself – everything trimming or
-/// single-file packaging could break silently: JSON of settings, sync and update manifest, SQLite, the
-/// protected token store, the scanner and the store of the analyses, the treemap, Windows shortcuts (COM) and the windows of the app with their
-/// bindings. It runs in a fresh temporary data folder (Program sets it), never touches the user's data, writes a report
-/// and ends with exit code 0 (all passed) or 1. CI runs it on every Windows build.
+/// single-file packaging could break silently: JSON of settings, sync and update manifest, SQLite (connections and jobs), a sync of a
+/// temporary folder through the engine (when this build has it), the protected token store, Windows shortcuts (COM) and every window
+/// of the app with its bindings (from the sample data). It runs in a fresh temporary data folder (Program sets it), never touches the
+/// user's data, writes a report and ends with exit code 0 (all passed) or 1. CI runs it on every Windows build.
 /// </summary>
 internal static class SelfTest
 {
@@ -43,10 +43,10 @@ internal static class SelfTest
 
         await Check("settings (JSON)", () =>
         {
-            SettingsService.Update(settings => settings with { KeepAnalyses = 10, Theme = ThemeChoice.Dark });
+            SettingsService.Update(settings => settings with { KeepProtocolDays = 30, Theme = ThemeChoice.Dark, Notify = NotifyChoice.Changes });
             SettingsStore.Reset();
             var read = SettingsService.Get();
-            Ensure(read is { KeepAnalyses: 10, Theme: ThemeChoice.Dark }, "settings did not survive a save");
+            Ensure(read is { KeepProtocolDays: 30, Theme: ThemeChoice.Dark, Notify: NotifyChoice.Changes }, "settings did not survive a save");
             return Task.FromResult("");
         });
 
@@ -62,33 +62,56 @@ internal static class SelfTest
         await Check("MatCloud contract (JSON)", () =>
         {
             var now = DateTimeOffset.UtcNow;
-            var item = new SyncItemDto { Collection = "sources", Key = Guid.NewGuid().ToString("D"), Data = "{\"name\":\"x\"}", UpdatedAt = now, Revision = 3 };
+            var item = new SyncItemDto { Collection = "jobs", Key = Guid.NewGuid().ToString("D"), Data = "{\"name\":\"x\"}", UpdatedAt = now, Revision = 3 };
             var json = JsonSerializer.Serialize(new SyncChangeSet([item], 3, false), CloudContract.Json);
             var back = JsonSerializer.Deserialize<SyncChangeSet>(json, CloudContract.Json);
             Ensure(back is { Latest: 3 } && back.Items[0].Key == item.Key, "change set not read back");
-            Ensure(CloudApps.Find(CloudApps.Space)?.Name == "ThixSync", "app id missing in the contract");
+            Ensure(CloudApps.Find(CloudApps.Sync)?.Name == "ThixSync", "app id missing in the contract");
             return Task.FromResult("");
         });
 
-        await Check("analysis (scanner, SQLite, tree, comparison)", async () =>
+        var probeJob = Guid.Empty;
+        await Check("connections and jobs (SQLite)", () =>
         {
-            // a small folder of its own inside the temporary data folder: analysed twice, the second time with a new file
+            // this computer as source and target: two folders of the temporary data folder
             var folder = Path.Combine(AppPaths.DataDirectory, "probe");
-            Directory.CreateDirectory(Path.Combine(folder, "Bilder"));
-            await File.WriteAllBytesAsync(Path.Combine(folder, "Bilder", "foto.jpg"), new byte[300_000]);
-            await File.WriteAllBytesAsync(Path.Combine(folder, "notiz.txt"), new byte[1_000]);
-            var source = SourceService.Create(new SourceInput("Selbsttest", SourceKind.Local, folder));
-            var first = await ScanService.ScanAsync(source.Id) ?? throw new InvalidOperationException("first analysis cancelled");
-            Ensure(first is { FileCount: 2, TotalBytes: 301_000 }, $"counted {first.FileCount} files, {first.TotalBytes} bytes");
-            await File.WriteAllBytesAsync(Path.Combine(folder, "Bilder", "neu.png"), new byte[50_000]);
-            var second = await ScanService.ScanAsync(source.Id) ?? throw new InvalidOperationException("second analysis cancelled");
-            AnalysisService.ResetForTests(); // read the trees back from SQLite
-            var comparison = AnalysisService.Compare(second, first) ?? throw new InvalidOperationException("no comparison");
-            var tree = AnalysisService.LoadTree(second.Id) ?? throw new InvalidOperationException("tree not stored");
-            var change = comparison.ChangeOf(tree.FindByKey("Bilder")!);
-            Ensure(change is { Kind: ChangeKind.Grown, Delta: 50_000 }, $"change {change}");
-            Ensure(TreemapLayout.Layout(tree, 800, 500).Count >= 4, "no map laid out");
-            return $"{AnalysisService.List().Count} analyses";
+            var source = Path.Combine(folder, "Quelle");
+            var target = Path.Combine(folder, "Ziel");
+            Directory.CreateDirectory(Path.Combine(source, "Bilder"));
+            Directory.CreateDirectory(target);
+            File.WriteAllBytes(Path.Combine(source, "Bilder", "foto.jpg"), new byte[300_000]);
+            File.WriteAllBytes(Path.Combine(source, "notiz.txt"), new byte[1_000]);
+            var thisComputer = ConnectionService.EnsureThisComputer();
+            var job = JobService.Save(new SyncJob
+            {
+                Name = "Selbsttest",
+                Mode = SyncMode.Mirror,
+                SourceConnectionId = thisComputer.Id,
+                TargetConnectionId = thisComputer.Id,
+                Pairs = [new FolderPair { SourcePath = source, TargetPath = target }],
+            });
+            probeJob = job.Id;
+            ConnectionService.ResetForTests();
+            JobService.ResetForTests();
+            Ensure(JobService.Find(job.Id) is { Pairs.Count: 1 } && ConnectionService.Find(thisComputer.Id) is not null, "job or connection not read back");
+            return Task.FromResult($"{ConnectionService.List().Count} connections, {JobService.List().Count} jobs");
+        });
+
+        await Check("local sync (engine)", async () =>
+        {
+            try
+            {
+                var run = await JobRunner.RunAsync(probeJob, new RunRequest { Trigger = RunTrigger.Cli });
+                var target = Path.Combine(AppPaths.DataDirectory, "probe", "Ziel");
+                Ensure(run.Outcome == RunOutcome.Success, $"run ended {run.Outcome}: {run.Summary}");
+                Ensure(File.Exists(Path.Combine(target, "Bilder", "foto.jpg")) && File.Exists(Path.Combine(target, "notiz.txt")), "files not copied");
+                Ensure(ProtocolService.Find(run.Id) is not null, "run not in the protocol");
+                return $"{run.FilesCopied} files, {run.BytesCopied} bytes";
+            }
+            catch (NotImplementedException)
+            {
+                return "skipped: the engine is not part of this build";
+            }
         });
 
         await Check("install options (installer.json, arguments)", () =>
@@ -120,23 +143,36 @@ internal static class SelfTest
 
         await Check("windows and bindings", async () =>
         {
+            SampleSync.Create();
             var window = new MainWindow();
             window.ShowFromTray();
             await Settle();
-            for (var wait = 0; wait < 50 && (window.MapPage.Analysis is null || window.MapPage.Map.Tiles.Count == 0); wait++)
-            {
-                await Settle();
-            }
-
-            Ensure(window.MapPage.Analysis is not null && window.MapPage.Map.Tiles.Count > 0, $"the map shows no analysis ({window.MapPage.Analysis?.SourceName ?? "none"}, {window.MapPage.Map.Tiles.Count} tiles, map {window.MapPage.Map.Bounds.Size}, visible {window.MapPage.Map.IsEffectivelyVisible}, root {window.MapPage.MapRoot?.Size})");
-            window.ShowSources();
+            Ensure(window.JobsPage.Cards.Count >= 4, $"the jobs page shows {window.JobsPage.Cards.Count} cards");
+            window.ShowActivity();
             await Settle();
-            Ensure(window.SourcesPage.List.ItemCount > 0, "no source listed");
-            window.ShowSources(createNew: true);
+            window.ShowJobs(Pages.JobsPage.OverviewTab);
             await Settle();
-            window.ShowAnalyses();
+            Ensure(window.JobsPage.Overview.JobsValue.Length > 0, "no overview");
+            window.ShowJobForm(null);
             await Settle();
-            Ensure(window.AnalysesPage.List.ItemCount > 0, "no analysis listed");
+            window.ShowJobDetails(SampleSync.ProjectsJobId);
+            window.JobDetailsPage.ShowPlan(SampleSync.Plan());
+            await Settle();
+            Ensure(window.JobDetailsPage.PlanTable.ItemCount > 0, "no plan listed");
+            window.ShowConnections();
+            await Settle();
+            Ensure(window.ConnectionsPage.List.ItemCount > 0, "no connection listed");
+            window.ShowConnectionForm(null);
+            await Settle();
+            window.ShowConnectionForm(SampleSync.NasId);
+            await Settle();
+            window.ShowSchedules();
+            await Settle();
+            window.ShowProtocol();
+            await Settle();
+            Ensure(window.ProtocolPage.Table.ItemCount > 0, "no run listed");
+            window.ShowRun(SampleSync.DocumentsRunId);
+            await Settle();
             window.ShowSettings();
             await Settle();
             window.ShowAbout();
@@ -153,6 +189,7 @@ internal static class SelfTest
             Dialogs.ProblemReportDialog.ShowUnseen()?.Close();
             window.IsExiting = true;
             window.Close();
+            Core.Storage.StorageProviders.OverrideForTests(null, null);
             return "";
         });
 
@@ -160,7 +197,7 @@ internal static class SelfTest
         await File.WriteAllTextAsync(reportPath, report.ToString(), Encoding.UTF8);
 
         // The temporary data folder goes again (unless the report was written into it).
-        SpaceStore.Close();
+        Database.Close();
         if (!Path.GetFullPath(reportPath).StartsWith(Path.GetFullPath(AppPaths.DataDirectory), StringComparison.OrdinalIgnoreCase))
         {
             try

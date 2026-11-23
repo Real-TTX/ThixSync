@@ -6,7 +6,7 @@ using ThixSync.Controls;
 
 namespace ThixSync.Dialogs;
 
-/// <summary>A yes/no question (clear the history, sign out). Buttons from positive to negative; Esc cancels.</summary>
+/// <summary>A yes/no question (delete a job or a connection, sign out). Buttons from positive to negative; Esc cancels.</summary>
 public sealed class ConfirmDialog : MatWindow
 {
     private bool _confirmed;
@@ -45,7 +45,22 @@ public sealed class ConfirmDialog : MatWindow
         var text = new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 22) }.Use(SelectableTextBlock.ForegroundProperty, "Mat.TextMuted");
 
         Content = new StackPanel { Margin = new Thickness(24, 22), Children = { heading, text, actions } };
-        Opened += (_, _) => (hasCancel && isDestructive ? actions.Children[1] : confirm).Focus();
+        Opened += (_, _) =>
+        {
+            Current = this;
+            (hasCancel && isDestructive ? actions.Children[1] : confirm).Focus();
+        };
+        Closed += (_, _) => Current = Current == this ? null : Current;
+    }
+
+    /// <summary>The question shown now (tests answer it).</summary>
+    internal static ConfirmDialog? Current { get; private set; }
+
+    /// <summary>Answers the question as the buttons would (tests).</summary>
+    internal void Answer(bool confirmed)
+    {
+        _confirmed = confirmed;
+        Close();
     }
 
     /// <summary>Asks the question; true when the user confirmed.</summary>

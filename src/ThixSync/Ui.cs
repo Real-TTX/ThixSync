@@ -1,17 +1,21 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using MatDesktop;
 using ThixSync.Core.Infrastructure;
 
 namespace ThixSync;
 
 /// <summary>
-/// Small helpers for code-built UI: the app icon and logo, the UI thread, opening addresses, texts of times and sizes.
-/// Colours, sizes and named looks are MatDesktop's (<c>control.Use(property, "Mat.TextMuted")</c>,
-/// <c>control.Themed("MatButton.Primary")</c>), icons are <c>MatIcon</c> with the name of the sprite.
+/// Small helpers for code-built UI: the app icon and logo, the UI thread, opening addresses, the life of a page's subscriptions and
+/// a few text and layout shortcuts. Colours, sizes and named looks are MatDesktop's (<c>control.Use(property, "Mat.TextMuted")</c>,
+/// <c>control.Themed("MatButton.Primary")</c>), icons are <c>MatIcon</c> with the name of the sprite; numbers and times are
+/// <see cref="Controls.Formats"/>.
 /// </summary>
 internal static class Ui
 {
@@ -21,7 +25,7 @@ internal static class Ui
     /// <summary>The icon of every window of ThixSync (the task bar, Alt+Tab): MatThemeOptions.Icon gives it to every MatWindow.</summary>
     public static WindowIcon AppIcon => _appIcon ??= new WindowIcon(AssetLoader.Open(new Uri("avares://ThixSync/Assets/thixsync.ico")));
 
-    /// <summary>The logo (the mark of the app), for the title bar and the header of the setup.</summary>
+    /// <summary>The logo (the mark of the app), for the title bar, the header of the jobs and the setup.</summary>
     public static Bitmap Logo => _logo ??= new Bitmap(AssetLoader.Open(new Uri("avares://ThixSync/Assets/logo-256.png")));
 
     /// <summary>
@@ -39,11 +43,29 @@ internal static class Ui
     /// <summary>The window that hosts a control (null while it is not shown).</summary>
     public static Window? WindowOf(Control control) => TopLevel.GetTopLevel(control) as Window;
 
+    /// <summary>The main window that hosts a control (null while it is not shown).</summary>
+    public static MainWindow? MainOf(Control control) => TopLevel.GetTopLevel(control) as MainWindow;
+
     /// <summary>Ctrl on Windows, Cmd on macOS: the modifier of the app's own shortcuts.</summary>
     public static KeyModifiersName CommandKey => OperatingSystem.IsMacOS() ? new("⌘", Avalonia.Input.KeyModifiers.Meta) : new("Strg", Avalonia.Input.KeyModifiers.Control);
 
     /// <summary>Tests see what would be opened instead of starting the browser.</summary>
     internal static Action<string>? OpenExternalForTests { get; set; }
+
+    /// <summary>
+    /// Subscribes to the events of the business layer only while <paramref name="control"/> is in a window: <paramref name="subscribe"/>
+    /// when it comes (and then <paramref name="refresh"/>), <paramref name="unsubscribe"/> when it goes. A page that is not shown neither
+    /// works nor keeps a closed window alive.
+    /// </summary>
+    public static void WhileShown(Control control, Action subscribe, Action unsubscribe, Action refresh)
+    {
+        control.AttachedToVisualTree += (_, _) =>
+        {
+            subscribe();
+            refresh();
+        };
+        control.DetachedFromVisualTree += (_, _) => unsubscribe();
+    }
 
     /// <summary>Opens a web address or a folder with the program the system uses for it (browser, Explorer, Finder).</summary>
     public static void OpenExternal(string pathOrUrl)
@@ -69,79 +91,90 @@ internal static class Ui
         }
     }
 
-    /// <summary>"vor 3 Min." / "14:28" / "Gestern, 17:56" / "12.11., 09:14" / "12.11.2025".</summary>
-    public static string FormatTime(DateTimeOffset value)
+    /// <summary>A text in a named look ("MatText.Muted", "MatText.SectionTitle" …).</summary>
+    public static TextBlock Text(string text, string? theme = null, double? size = null, FontWeight? weight = null)
     {
-        var local = value.ToLocalTime();
-        var today = AppClock.Today;
-        if (local.Date == today)
+        var block = new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center };
+        if (theme is not null)
         {
-            return local.ToString("HH:mm");
+            block.Themed(theme);
         }
 
-        if (local.Date == today.AddDays(-1))
+        if (size is { } fontSize)
         {
-            return $"Gestern, {local:HH:mm}";
+            block.FontSize = fontSize;
         }
 
-        return local.Year == today.Year ? local.ToString("dd.MM., HH:mm") : local.ToString("dd.MM.yyyy");
+        if (weight is { } fontWeight)
+        {
+            block.FontWeight = fontWeight;
+        }
+
+        return block;
     }
 
-    /// <summary>"Heute, 13:47" or "12.11.2026, 13:47".</summary>
-    public static string FormatDateTime(DateTimeOffset value)
+    /// <summary>A text in a colour of the theme ("Mat.TextMuted", "Mat.SuccessText" …).</summary>
+    public static TextBlock Colored(string text, string colour, double? size = null, FontWeight? weight = null)
     {
-        var local = value.ToLocalTime();
-        if (local.Date == AppClock.Today)
-        {
-            return $"Heute, {local:HH:mm}";
-        }
-
-        return local.Date == AppClock.Today.AddDays(-1) ? $"Gestern, {local:HH:mm}" : local.ToString("dd.MM.yyyy, HH:mm");
+        var block = Text(text, null, size, weight);
+        block.Use(TextBlock.ForegroundProperty, colour);
+        return block;
     }
 
-    private static readonly System.Globalization.CultureInfo German = System.Globalization.CultureInfo.GetCultureInfo("de-DE");
-
-    /// <summary>"0 B", "512 B", "12,3 KB", "4,56 MB", "123 GB", "1,23 TB" (1 KB = 1024 B, as Explorer and Finder count on their drives).</summary>
-    public static string FormatSize(long bytes)
+    /// <summary>A button with an icon and a text (and a named look).</summary>
+    public static Button Button(string icon, string text, string? theme = null)
     {
-        string[] units = ["B", "KB", "MB", "GB", "TB", "PB"];
-        double value = Math.Abs(bytes);
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
+        var button = new Button { Content = new Controls.IconLabel { Icon = icon, Text = text } };
+        if (theme is not null)
         {
-            value /= 1024;
-            unit++;
+            button.Themed(theme);
         }
 
-        var sign = bytes < 0 ? "−" : "";
-        if (unit == 0)
-        {
-            return $"{sign}{value:0} B";
-        }
-
-        var format = value >= 100 ? "0" : value >= 10 ? "0.0" : "0.00";
-        return sign + value.ToString(format, German) + " " + units[unit];
+        return button;
     }
 
-    /// <summary>"+1,20 GB", "−340 MB", "±0 B".</summary>
-    public static string FormatDelta(long delta) => delta switch
+    /// <summary>The control placed in a cell of a grid (row, column, span).</summary>
+    public static T Cell<T>(T control, int row, int column, int columnSpan = 1)
+        where T : Control
     {
-        > 0 => "+" + FormatSize(delta),
-        < 0 => FormatSize(delta),
-        _ => "±0 B",
-    };
+        Grid.SetRow(control, row);
+        Grid.SetColumn(control, column);
+        if (columnSpan > 1)
+        {
+            Grid.SetColumnSpan(control, columnSpan);
+        }
 
-    /// <summary>"1.234.567" (German thousands).</summary>
-    public static string FormatCount(long count) => count.ToString("N0", German);
+        return control;
+    }
 
-    /// <summary>"12,5 %".</summary>
-    public static string FormatShare(long part, long whole) =>
-        whole <= 0 ? "–" : (100.0 * part / whole).ToString(part * 1000 < whole ? "0.0" : "0.#", German) + " %";
+    /// <summary>The control docked at a side of a DockPanel.</summary>
+    public static T Docked<T>(T control, Dock dock)
+        where T : Control
+    {
+        DockPanel.SetDock(control, dock);
+        return control;
+    }
 
-    /// <summary>"3 Min. 12 s", "45 s".</summary>
-    public static string FormatDuration(TimeSpan duration) => duration.TotalSeconds < 60
-        ? $"{Math.Max(0, duration.TotalSeconds):0} s"
-        : duration.TotalMinutes < 60 ? $"{(int)duration.TotalMinutes} Min. {duration.Seconds} s" : $"{(int)duration.TotalHours} Std. {duration.Minutes} Min.";
+    /// <summary>A rounded square with an icon in the accent tint (lists, cards, the type picker).</summary>
+    public static Border IconTile(string icon, double size = 40, double iconSize = 20, string background = "Mat.AccentSoft", string foreground = "Mat.AccentText")
+    {
+        var tile = new Border
+        {
+            Width = size,
+            Height = size,
+            CornerRadius = new CornerRadius(size / 4),
+            Child = new MatIcon { Icon = icon, Size = iconSize, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+                .Use(MatIcon.ForegroundProperty, foreground),
+        };
+        tile.Use(Border.BackgroundProperty, background);
+        return tile;
+    }
+
+    /// <summary>A hairline of the theme (between rows and areas of a card).</summary>
+    public static Border Line(Thickness margin) => new Border { Height = 1, Margin = margin }.Use(Border.BackgroundProperty, "Mat.Border");
+
+    /// <summary>A card of MatDesktop (surface, hairline, large radius) around the content.</summary>
+    public static Border Card(Control child, Thickness? padding = null) => new Border { Child = child, Padding = padding ?? new Thickness(20) }.Themed("MatCard");
 
     /// <summary>Copies a text to the clipboard of the window of <paramref name="control"/>.</summary>
     public static async Task CopyTextAsync(Control control, string text)

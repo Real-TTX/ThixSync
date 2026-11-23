@@ -31,9 +31,12 @@ updates, autostart, tray, self test, snapshots, CI) comes from ThixSpace / ThixC
   - `tests/ThixSync.UiTests`: the UI rendered headless (every page light/dark, forms, toolbars, pagination, tray, the copies of
     MatCloud's contract and MatDesktop unchanged, no window writes a colour of its own; `THIXSYNC_SCREENSHOTS=<folder>` keeps screenshots).
   Tests never touch real data, the Keychain, the registry or LaunchAgents (`TestData`).
-- **Snapshots:** `dotnet run --project src/ThixSync -- --snapshot docs/images` draws every window headless (light, dark) from
-  `SampleSync` with a pinned clock. ThixLauncher's store shows `main-jobs-light.png`, `main-activity-light.png`,
-  `main-connections-light.png` from here. A new page: add it to `Snapshot.cs`.
+- **Snapshots:** `dotnet run --project src/ThixSync -- --snapshot docs/images` draws every window headless (light, dark, 1x, natural
+  size) from `SampleSync` (Core: connections of every group, the jobs "Dokumente & Fotos", "Projekte NAS", "Fotos Backup",
+  "Server Spiegel", two weeks of runs, a running progress, a plan with conflicts) with pinned clock 12.11.2026 14:32, version 1.0.0,
+  computer ANNA-PC: `setup-*`, `main-{jobs,jobs-running,activity,overview,job-form-<tab>,job-details,job-history,connections,
+  connection-types,connection-form,schedules,protocol,run,settings-<tab>,about,folded}`, `toast`, `tray-icon-{windows,macos}[-running]`.
+  ThixLauncher's store shows `main-jobs`, `main-activity`, `main-connections` from here. A new page: add it to `Snapshot.cs` (and `FileNames`).
 - `ThixSync.exe --self-test <report>` checks the published (trimmed) program; CI runs it after every Windows publish.
 - **The MatCloud contract** (`src/ThixSync.Core/MatCloud/`) is a COPY: never edit it here. Change it in MatCloud and copy it again
   with `node ../MatCloud/tools/contract-copy.js src/ThixSync.Core`.
@@ -45,6 +48,70 @@ updates, autostart, tray, self test, snapshots, CI) comes from ThixSpace / ThixC
   (Einstellungen › Erweitert, `AppSettings.OAuthClients`).
 - `scripts/package-macos.sh` builds `ThixSync.app` (+ `Contents/MacOS/thixsync-cli`), the update zip, the dmg and the CLI tar.gz.
 - **CLI** `src/ThixSync.Cli` → `thixsync-cli` (never `thixsync`: it would clash with ThixSync.exe, names ignore case): `list`,
+  `run <job> [--preview [--all]] [--confirm-deletes] [--json] [--quiet]`, `status`, `runs`, `log <run>`, `connections`, `test`,
+  `pause`, `resume`, `export`, `import` (`ExportService`: no secrets, ids kept, existing skipped), `help`, `--version`. Same data
+  folder as the app, only the business layer; it never starts the scheduler. Exit codes (`ExitCodes.cs`): 0 ok, 1 warnings/conflicts/
+  needs confirmation, 2 failed, 3 usage, 4 not found, 5 business error, 130 Ctrl+C. `scripts/smoke-test-cli.sh <exe>` checks a
+  published CLI. On Windows CI embeds the CLI into ThixSync.exe (`-p:ThixSyncCliPath=<file>`); `InstallService` extracts it next to
+  ThixSync.exe and – install option `cli-path` – adds the program folder to the user's PATH; uninstall removes both.
+
+## Map
+
+```
+src/ThixSync.Core      (no UI) models, business layer (static classes), storages, infrastructure, native code
+  MatCloud/            COPY of MatCloud's contract 1.7.0 (CloudApps.Sync, general sync, Drive API, sign-in, CloudHandoff)
+  Models/              Connection (+ ConnectionKind, ConnectionGroup, SyncState), SyncJob (FolderPair, SyncMode, JobFilter, JobOptions,
+                       JobSchedule, ConflictPolicy), SyncRun (+ RunEntry, RunTrigger, RunOutcome), SyncPlan (PlanItem, PlanAction,
+                       ConflictChoice, RunProgress, ActiveTransfer), AppSettings (Remote, OAuthClients, Cloud), InstallerConfig, BusinessException
+  Storage/             IStorage (THE contract of every provider: list, get, read, write atomically, folders, delete, move; StorageCapabilities,
+                       StorageFeatures, StorageException + StorageErrorKind; ILocalStorage, IChangeFeed), StorageProvider (StorageContext,
+                       IStorageProvider – found by reflection, IFolderBrowser, StorageProviders), StoragePath (relative '/' paths),
+                       ConnectionCatalog (every type: group, icon, sign-in, the fields with FieldType/FieldTab/VisibleWhen – the UI draws
+                       the type picker and the form from it, the business layer validates against it)
+    Providers/         Local (this computer, external drives by volume id, LocalStorage = base of every mounted share), Smb, Nfs, Nas
+                       (Synology/QNAP → SMB/WebDAV/SFTP), Sftp (SFTP, rsync over SSH with `find -printf` listing, Hetzner), Ftp, WebDav
+                       (WebDAV, Nextcloud with X-OC-Mtime), Seafile, S3 (own SigV4; S3, Wasabi, B2, GCS; multipart), Azure, Mega, PCloud,
+                       OAuth (PKCE + loopback, token source, CloudApi), GoogleDrive, OneDrive (OneDrive + SharePoint via Graph, delta),
+                       Dropbox, Box, Remote (client of ThixSync Remote), MatCloud (ThixDrive), Network (pool, folder walker, TLS trust on
+                       first use, HTTP client and error mapping)
+  Business/            ConnectionService (CRUD + checks, secrets protected via TokenStore and never synced, Open, TestAsync, ListFoldersAsync,
+                       learned values), JobService (CRUD + checks: pairs never overlap, schedule, options; NextRun, Describe*),
+                       JobRunner (contract) + Engine/ (Scanner → PathFilter → Planner → Executor with two lanes (small files with full
+                       parallelism, large ones limited), ItemOperations, Transfers (OS copy local→local, streams otherwise, hash on the
+                       fly), Versions (.thixsync/versions/<run>/…), StateBook + Infrastructure/JobStateStore (state per job, one SQLite
+                       per job), TransferMeter (speed history, bytes/s, files/s, ETA), Throttle (global bandwidth), AdaptiveLimiter (AIMD
+                       on rate limits), RetryRunner, RunLog, RunSlot/JobQueue/JobLock (MaxConcurrentJobs, lock file per job across
+                       processes), ChangeWatchers, PowerStatus), SchedulerService (contract + Engine: schedules, catch-up, start-up,
+                       on change, pause all), ProtocolService (runs and lines: query, pages, overview, cleanup), Format (German numbers),
+                       OAuthService (sign-in in the browser), CloudSyncService (MatCloud: sign-in, loop push → pull → long poll),
+                       CloudSyncItems (collections "connections" and "jobs"), StoreWatcher (changes of other processes, e.g. the CLI),
+                       ExportService, SettingsService, AccessPolicy, AutostartService, InstallService, InstallerOptions, UpdateService,
+                       MacAppBundle
+  Remote/              RemoteServer (contract + implementation: TLS listener, pairing with a code bound to the certificate, device keys,
+                       shares, discovery), RemoteSession, RemoteWire, RemoteSecurity, RemoteProtocol (the protocol, documented there)
+  Infrastructure/      SyncStore (SQLite sync.db: Connection, Job, Run, RunEntry; tombstones for the cloud; data_version), JobStateStore,
+                       SettingsStore, TokenStore (DPAPI / Keychain), CloudClient, AppPaths, AppInfo, AppClock, Log, ProblemReports
+  Platform/            NetworkShares (SMB/NFS: Windows WNetAddConnection2, macOS NetFS / mount_nfs), FileSystemActions, WindowActivation,
+                       Windows/ShellLink, Windows/EnvironmentChange, Mac/ObjC, Mac/MacTrash
+src/ThixSync           (Avalonia app)
+  App / Program        start-up, setup mode, single instance, tray, first start (EnsureThisComputer), CloudSyncService, SchedulerService,
+                       RemoteServer, OAuthService.OpenBrowser, notifications of finished runs by AppSettings.Notify (TRAY-04); exit stops them
+  MainWindow           MatTitleBar (running jobs in the middle: "2 Aufträge · 48,2 MB/s" → Aktivität), MatNav: Synchronisationen, Geräte,
+                       Zeitpläne, Protokolle, Einstellungen; foot: cloud state, version = About. Sections plus pages on top (forms, details,
+                       a run) with a back stack: Zurück/Esc return to the opener. Keys Ctrl/Cmd+1…4, +, , +N, +B, F5, Esc
+  RunMonitor           the running jobs for the UI: JobRunner's progress on the UI thread (throttled to 4/s), starting/stopping runs with
+                       every error as a message (also NotImplementedException of an engine that is not there)
+  JobStatus            the state word/icon/tone of a job (Aktuell, Läuft …, Fehler, Konflikte, Pausiert, Nie synchronisiert, Bestätigung nötig)
+  Pages/               JobsPage (header, tabs Synchronisationen | Aktivität | Übersicht: job cards with toolbar, ActivityView, OverviewView),
+                       JobForm (tabs Allgemein | Quelle & Ziel | Filter | Zeitplan | Optionen), JobDetailsPage (Vorschau with the plan,
+                       conflicts per row | Verlauf | Einstellungen), ConnectionsPage + ConnectionForm (type picker, then the fields of the
+                       catalog in tabs Allgemein | Anmeldung | Erweitert), SchedulesPage, ProtocolPage + RunPage, SettingsPage (Allgemein |
+                       Übertragung | Remote | Cloud | Updates | Erweitert), AboutPage
+  Controls/            the reusable parts: ListToolbar (search, filters, sort), DataTable<T> (header + rows in a card), Pager, FormFields
+                       (errors at fields across tabs), ChoiceCards, ConnectionPicker, FolderPairsEditor, WeekdayPicker, JobCard,
+                       ActivityPanel, Sparkline, BarChart, SyncArrow, Spinner, StatePill/StatTile/EmptyState, Formats (de-DE numbers and
+                       times), ActionBar, IconLabel, InfoBar, FormErrors
+src/ThixSync.Cli` → `thixsync-cli` (never `thixsync`: it would clash with ThixSync.exe, names ignore case): `list`,
   `run <job> [--preview [--all]] [--confirm-deletes] [--json] [--quiet]`, `status`, `runs`, `log <run>`, `connections`, `test`,
   `pause`, `resume`, `export`, `import` (`ExportService`: no secrets, ids kept, existing skipped), `help`, `--version`. Same data
   folder as the app, only the business layer; it never starts the scheduler. Exit codes (`ExitCodes.cs`): 0 ok, 1 warnings/conflicts/

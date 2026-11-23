@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The desktop application for Windows and macOS (Avalonia): the window, tray / menu bar icon and - on
+    The desktop application for Windows and macOS (Avalonia): the window with the jobs, tray / menu bar icon and - on
     Windows - its own setup (same program).
     Windows: published self-contained single-file for win-x64; that ThixSync.exe is its own setup (InstallService).
     macOS:   published self-contained for osx-arm64 / osx-x64 and packed into ThixSync.app (scripts/package-macos.sh).
@@ -63,7 +63,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="ThixSync.Tests" />
+    <InternalsVisibleTo Include="ThixSync.UiTests" />
   </ItemGroup>
 
   <ItemGroup>

@@ -35,6 +35,42 @@ Jeder Typ kann Quelle **und** Ziel sein – in jeder Kombination.
 - **Setup, Autostart, Updates:** eigenes Setup, Start bei der Anmeldung, Updates über das Internet (auf Wunsch vollautomatisch);
   installierbar und aktualisierbar über den **ThixLauncher**.
 
+## Bilder
+
+| Synchronisationen (hell) | Synchronisationen (dunkel) |
+|---|---|
+| ![Synchronisationen](docs/images/main-jobs-light.png) | ![Synchronisationen dunkel](docs/images/main-jobs-dark.png) |
+
+| Läuft | Aktivität | Übersicht |
+|---|---|---|
+| ![Läuft](docs/images/main-jobs-running-light.png) | ![Aktivität](docs/images/main-activity-light.png) | ![Übersicht](docs/images/main-overview-light.png) |
+
+| Vorschau mit Konflikten | Synchronisation bearbeiten | Ordnerpaare |
+|---|---|---|
+| ![Vorschau](docs/images/main-job-details-light.png) | ![Formular](docs/images/main-job-form-general-light.png) | ![Ordnerpaare](docs/images/main-job-form-pairs-light.png) |
+
+| Geräte | Neue Verbindung | Zeitpläne |
+|---|---|---|
+| ![Geräte](docs/images/main-connections-light.png) | ![Typen](docs/images/main-connection-types-light.png) | ![Zeitpläne](docs/images/main-schedules-light.png) |
+
+| Protokolle | Ein Lauf | Einstellungen › Remote |
+|---|---|---|
+| ![Protokolle](docs/images/main-protocol-light.png) | ![Lauf](docs/images/main-run-light.png) | ![Remote](docs/images/main-settings-remote-light.png) |
+
+## Bedienung
+
+| Taste | Wirkung |
+|---|---|
+| `Strg/⌘ + 1 / 2 / 3 / 4` | Synchronisationen / Geräte / Zeitpläne / Protokolle |
+| `Strg/⌘ + ,` | Einstellungen |
+| `Strg/⌘ + N` | neue Synchronisation |
+| `F5` | die gezeigte (bzw. erste) Synchronisation jetzt ausführen |
+| `Enter` | im Formular: speichern; in einer Tabelle: die Zeile öffnen |
+| `Strg/⌘ + B` | Menü ein- / ausklappen |
+| `Esc` | zurück dorthin, wo die Seite geöffnet wurde |
+
+Die Version unten links („Version 1.0.0 · release“) öffnet „Über ThixSync“.
+
 ## Installation
 
 - **ThixLauncher** (empfohlen): ThixSync im Store installieren – Updates kommen von dort.
@@ -53,6 +89,30 @@ thixsync-cli help
 ```
 
 Exit-Codes: 0 erfolgreich, 1 Warnungen/Konflikte, 2 fehlgeschlagen, 3 falscher Aufruf, 4 nicht gefunden, 5 abgelehnt, 130 abgebrochen.
+
+## Versionen, Kanäle, Updates
+
+| Branch | Version | Desktop-Kanal |
+|---|---|---|
+| `main` | `0.1.<build>-<datum>` (z. B. `0.1.42-20261123`) | `release-channel` + Release `v<version>` |
+| `dev` | `nightly-<build>-<datum>` | `nightly-channel` |
+| sonst / lokal | `local-<datum>` | – (keine Updates) |
+
+Jede installierte Version prüft beim Start und alle 6 Stunden ihren eigenen Kanal (abschaltbar); mit „Updates automatisch
+installieren“ (Full-Auto-Update, bei neuen Installationen an) wird ohne Rückfrage aktualisiert und neu gestartet.
+
+## Für Administratoren
+
+Richtlinien (Wert 1): Windows `HKLM\SOFTWARE\Policies\ThixSync`, macOS Konfigurationsprofil `info.schmoldt.thixsync`.
+
+| Richtlinie | Wirkung |
+|---|---|
+| `LockConfiguration` | Einstellungen, Verbindungen und Aufträge nur lesbar (die Aufträge laufen weiter) |
+| `DisableCloud` | keine Verbindung zur MatCloud |
+| `DisableUpdates` | keine Update-Prüfung, keine Installation |
+| `DisableDelete` | Aufträge löschen nirgends (Löschungen werden nicht übertragen) |
+| `DisableCloudStorage` | keine Cloud-Speicher (S3, Google Drive, OneDrive …) als Quelle oder Ziel |
+| `DisableRemote` | kein ThixSync Remote (keine Freigaben, keine Verbindungen zu anderen Computern) |
 
 ## Entwicklung
 

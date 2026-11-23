@@ -6,32 +6,40 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
-using Avalonia.Threading;
 using MatDesktop;
+using ThixSync.Controls;
 using ThixSync.Core.Business;
 using ThixSync.Core.Infrastructure;
+using ThixSync.Core.Models;
 using ThixSync.Core.Platform;
 using ThixSync.Pages;
 
 namespace ThixSync;
 
 /// <summary>
-/// The main window: the map, the sources, the analyses, the settings and About in one window (DESK-03/04). Closing it only hides it:
-/// ThixSync keeps running in the tray / menu bar (automatic analyses). Keys: Ctrl/Cmd+1/2/3 the sections, +, settings, +B fold the
-/// menu, +N a new source, F5 analyse again, Esc back to the map.
+/// The main window: Synchronisationen, Geräte, Zeitpläne, Protokolle, Einstellungen and About in one window (DESK-03/04). Forms and
+/// details open on top of a section and "Zurück" (or Esc) returns to where they were opened. Closing the window only hides it:
+/// ThixSync keeps running in the tray / menu bar (schedules, Remote). Keys: Ctrl/Cmd+1…4 the sections, +, the settings, +B fold the
+/// menu, +N a new synchronisation, F5 runs the chosen one, Esc back.
 /// </summary>
 public partial class MainWindow : MatWindow
 {
-    private readonly MapPage _map = new();
-    private readonly Lazy<SourcesPage> _sources = new(() => new SourcesPage());
-    private readonly Lazy<AnalysesPage> _analyses = new(() => new AnalysesPage());
+    private readonly JobsPage _jobs = new();
+    private readonly Lazy<ConnectionsPage> _connections = new(() => new ConnectionsPage());
+    private readonly Lazy<SchedulesPage> _schedules = new(() => new SchedulesPage());
+    private readonly Lazy<ProtocolPage> _protocol = new(() => new ProtocolPage());
     private readonly Lazy<SettingsPage> _settings = new(() => new SettingsPage());
     private readonly Lazy<AboutPage> _about = new(() => new AboutPage());
-    private readonly DispatcherTimer _sizeTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
-    private readonly DispatcherTimer _scanTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
-    private readonly MatNavItem _navMap;
-    private readonly MatNavItem _navSources;
-    private readonly MatNavItem _navAnalyses;
+    private readonly Lazy<JobForm> _jobForm = new(() => new JobForm());
+    private readonly Lazy<JobDetailsPage> _jobDetails = new(() => new JobDetailsPage());
+    private readonly Lazy<ConnectionForm> _connectionForm = new(() => new ConnectionForm());
+    private readonly Lazy<RunPage> _run = new(() => new RunPage());
+    private readonly Stack<(Control Page, MatNavItem? Nav)> _history = new();
+    private readonly Avalonia.Threading.DispatcherTimer _sizeTimer = new() { Interval = TimeSpan.FromMilliseconds(600) };
+    private readonly MatNavItem _navJobs;
+    private readonly MatNavItem _navConnections;
+    private readonly MatNavItem _navSchedules;
+    private readonly MatNavItem _navProtocol;
     private readonly MatNavItem _navSettings;
 
     public MainWindow()
@@ -50,11 +58,12 @@ public partial class MainWindow : MatWindow
         };
 
         var command = Ui.CommandKey.Name;
-        _navMap = new MatNavItem("grid", "Karte", $"{command}+1") { IsCurrent = true };
-        _navSources = new MatNavItem("hard-drive", "Quellen", $"{command}+2");
-        _navAnalyses = new MatNavItem("bar-chart", "Analysen", $"{command}+3");
+        _navJobs = new MatNavItem("refresh", "Synchronisationen", $"{command}+1") { IsCurrent = true };
+        _navConnections = new MatNavItem("monitor", "Geräte", $"{command}+2");
+        _navSchedules = new MatNavItem("calendar", "Zeitpläne", $"{command}+3");
+        _navProtocol = new MatNavItem("file-text", "Protokolle", $"{command}+4");
         _navSettings = new MatNavItem("settings", "Einstellungen", $"{command}+,");
-        Sidebar.Items.AddRange([_navMap, _navSources, _navAnalyses]);
+        Sidebar.Items.AddRange([_navJobs, _navConnections, _navSchedules, _navProtocol]);
         Sidebar.Settings = _navSettings;
         Sidebar.Version = AppInfo.Version;
         Sidebar.Channel = AppInfo.Channel;
@@ -70,7 +79,7 @@ public partial class MainWindow : MatWindow
             ApplySidebar();
         };
         AddToMenuFoot();
-        PageHost.Content = _map;
+        PageHost.Content = _jobs;
 
         _sizeTimer.Tick += (_, _) =>
         {
@@ -86,23 +95,29 @@ public partial class MainWindow : MatWindow
             _sizeTimer.Start();
         };
 
-        _scanTimer.Tick += (_, _) => RefreshScanStatus();
-        ScanService.Started += (_, _) => Ui.Post(() =>
+        _jobForm.Value.Closed = message =>
         {
-            RefreshScanStatus();
-            _scanTimer.Start();
-        });
-        ScanService.Finished += (_, _) => Ui.Post(() =>
-        {
-            _scanTimer.Stop();
-            RefreshScanStatus();
-        });
+            GoBack();
+            if (message is not null)
+            {
+                _jobs.ShowMessage(message, InfoSeverity.Success);
+            }
+        };
 
         AddHandler(KeyDownEvent, OnPreviewKeyDown, RoutingStrategies.Tunnel);
+        RunMonitor.Start();
+        RunMonitor.Changed += OnRuns;
+        RunMonitor.RunsChanged += OnRuns;
         UpdateCoordinator.Checked += (_, _) => Ui.Post(ApplySidebar);
-        SyncService.StatusChanged += (_, _) => Ui.Post(RefreshCloudStatus);
+        CloudSyncService.StatusChanged += (_, _) => Ui.Post(RefreshCloudStatus);
         SettingsService.Changed += (_, _) => Ui.Post(RefreshCloudStatus);
+        Closed += (_, _) =>
+        {
+            RunMonitor.Changed -= OnRuns;
+            RunMonitor.RunsChanged -= OnRuns;
+        };
         ApplySidebar();
+        RefreshRunStatus();
     }
 
     /// <summary>Set by App when the application ends: then the window really closes.</summary>
@@ -117,13 +132,28 @@ public partial class MainWindow : MatWindow
 
     public TextBlock CloudText { get; private set; } = null!;
 
-    public MapPage MapPage => _map;
+    /// <summary>The running jobs in the middle of the title bar ("2 Aufträge · 48,2 MB/s"); hidden while nothing runs.</summary>
+    public Button RunStatusButton => RunStatus;
 
-    public SourcesPage SourcesPage => _sources.Value;
+    public string RunStatusText => RunText.Text ?? "";
 
-    public AnalysesPage AnalysesPage => _analyses.Value;
+    public JobsPage JobsPage => _jobs;
+
+    public ConnectionsPage ConnectionsPage => _connections.Value;
+
+    public SchedulesPage SchedulesPage => _schedules.Value;
+
+    public ProtocolPage ProtocolPage => _protocol.Value;
 
     public SettingsPage SettingsPage => _settings.Value;
+
+    public JobForm JobForm => _jobForm.Value;
+
+    public JobDetailsPage JobDetailsPage => _jobDetails.Value;
+
+    public ConnectionForm ConnectionForm => _connectionForm.Value;
+
+    public RunPage RunPage => _run.Value;
 
     public object? CurrentPage => PageHost.Content;
 
@@ -146,61 +176,109 @@ public partial class MainWindow : MatWindow
         WindowActivation.BringToFront(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
     }
 
-    /// <summary>The map; of a source, an analysis and a comparison when given.</summary>
-    public void ShowMap(Guid? sourceId = null, Guid? analysisId = null, Guid? compareWith = null)
+    // ---------------------------------------------------------------------------------------------------------------- sections
+
+    /// <summary>"Synchronisationen" on a tab (<see cref="JobsPage.JobsTab"/>, <see cref="JobsPage.ActivityTab"/>, <see cref="JobsPage.OverviewTab"/>).</summary>
+    public void ShowJobs(string? tab = null)
     {
-        Sidebar.Select(_navMap);
-        PageHost.Content = _map;
-        if (sourceId is { } id)
+        ShowSection(_navJobs, _jobs);
+        if (tab is not null)
         {
-            _map.ShowSource(id, analysisId, compareWith);
+            _jobs.SelectTab(tab);
         }
     }
 
-    public void ShowSources(bool createNew = false)
-    {
-        Sidebar.Select(_navSources);
-        PageHost.Content = _sources.Value;
-        if (createNew)
-        {
-            _sources.Value.ShowNew();
-        }
-        else
-        {
-            _sources.Value.ShowList();
-        }
-    }
+    public void ShowActivity() => ShowJobs(JobsPage.ActivityTab);
 
-    public void ShowAnalyses(Guid? sourceId = null)
+    public void ShowConnections() => ShowSection(_navConnections, _connections.Value);
+
+    public void ShowSchedules() => ShowSection(_navSchedules, _schedules.Value);
+
+    /// <summary>"Protokolle", optionally of one job.</summary>
+    public void ShowProtocol(Guid? jobId = null)
     {
-        Sidebar.Select(_navAnalyses);
-        PageHost.Content = _analyses.Value;
-        _analyses.Value.FilterSource(sourceId);
+        ShowSection(_navProtocol, _protocol.Value);
+        if (jobId is not null)
+        {
+            _protocol.Value.FilterJob(jobId);
+            _protocol.Value.Refresh();
+        }
     }
 
     public void ShowSettings(string? tab = null)
     {
-        Sidebar.Select(_navSettings);
-        PageHost.Content = _settings.Value;
+        ShowSection(_navSettings, _settings.Value);
         if (tab is not null)
         {
             _settings.Value.SelectTab(tab);
         }
     }
 
-    public void ShowAbout()
+    public void ShowAbout() => ShowSection(null, _about.Value);
+
+    // ---------------------------------------------------------------------------------------------------------------- pages on top
+
+    /// <summary>The form of a job (null: a new one) on a tab, on top of the page shown now.</summary>
+    public void ShowJobForm(Guid? jobId, string? tab = null)
     {
-        Sidebar.Select(null);
-        PageHost.Content = _about.Value;
+        _jobForm.Value.Load(jobId, tab);
+        Push(_jobForm.Value);
     }
 
-    /// <summary>The tray's "Analysieren": the map of the source, and its analysis starts.</summary>
-    public void ScanSource(Guid sourceId) => _ = ScanSourceAsync(sourceId);
-
-    public async Task ScanSourceAsync(Guid sourceId)
+    /// <summary>The details of a job (Vorschau, Verlauf, Einstellungen); <paramref name="analyse"/> starts an analysis at once.</summary>
+    public void ShowJobDetails(Guid jobId, string? tab = null, bool analyse = false)
     {
-        ShowMap(sourceId);
-        await _map.ScanAsync(sourceId);
+        _jobDetails.Value.Load(jobId, tab, analyse);
+        Push(_jobDetails.Value);
+    }
+
+    /// <summary>The form of a connection (null: a new one, starting with the type picker); <paramref name="onSaved"/> gets the saved one.</summary>
+    public void ShowConnectionForm(Guid? connectionId, Action<Connection>? onSaved = null, ConnectionKind? kind = null)
+    {
+        _connectionForm.Value.Load(connectionId, kind, onSaved);
+        Push(_connectionForm.Value);
+    }
+
+    /// <summary>One run of the protocol.</summary>
+    public void ShowRun(Guid runId)
+    {
+        _run.Value.Load(runId);
+        Push(_run.Value);
+    }
+
+    /// <summary>Back to the page a form or detail was opened from (the start page when there is none).</summary>
+    public void GoBack()
+    {
+        if (_history.Count == 0)
+        {
+            ShowJobs();
+            return;
+        }
+
+        var (page, nav) = _history.Pop();
+        Sidebar.Select(nav);
+        PageHost.Content = page;
+        if (page == _jobs)
+        {
+            _jobs.Refresh();
+        }
+    }
+
+    private void ShowSection(MatNavItem? nav, Control page)
+    {
+        _history.Clear();
+        Sidebar.Select(nav);
+        PageHost.Content = page;
+    }
+
+    private void Push(Control page)
+    {
+        if (PageHost.Content is Control current && current != page)
+        {
+            _history.Push((current, Sidebar.Current));
+        }
+
+        PageHost.Content = page;
     }
 
     protected override void OnClosing(WindowClosingEventArgs e)
@@ -222,15 +300,19 @@ public partial class MainWindow : MatWindow
         {
             case Key.D1 when withCommand:
                 e.Handled = true;
-                ShowMap();
+                ShowJobs();
                 break;
             case Key.D2 when withCommand:
                 e.Handled = true;
-                ShowSources();
+                ShowConnections();
                 break;
             case Key.D3 when withCommand:
                 e.Handled = true;
-                ShowAnalyses();
+                ShowSchedules();
+                break;
+            case Key.D4 when withCommand:
+                e.Handled = true;
+                ShowProtocol();
                 break;
             case Key.OemComma when withCommand:
                 e.Handled = true;
@@ -240,15 +322,36 @@ public partial class MainWindow : MatWindow
                 e.Handled = true;
                 ToggleSidebar();
                 break;
-            case Key.N when withCommand:
+            case Key.N when withCommand && !AccessPolicy.IsConfigurationLocked:
                 e.Handled = true;
-                ShowSources(createNew: true);
+                ShowJobForm(null);
                 break;
-            case Key.Escape when OwnedWindows.Count == 0 && PageHost.Content != _map && e.Source is not TextBox:
+            case Key.F5:
                 e.Handled = true;
-                ShowMap();
+                RunChosen();
+                break;
+            case Key.Escape when OwnedWindows.Count == 0 && (_history.Count > 0 || PageHost.Content != _jobs):
+                e.Handled = true;
+                GoBack();
                 break;
         }
+    }
+
+    /// <summary>F5: the job of the page shown (details, form) or the first card – runs now.</summary>
+    private void RunChosen()
+    {
+        var jobId = PageHost.Content switch
+        {
+            JobDetailsPage details => details.JobId,
+            JobsPage jobs when jobs.Cards.Count > 0 => jobs.Cards[0].JobId,
+            _ => Guid.Empty,
+        };
+        if (jobId == Guid.Empty || RunMonitor.IsRunning(jobId))
+        {
+            return;
+        }
+
+        _ = JobCommands.RunAsync(this, jobId, _jobs.ShowMessage);
     }
 
     private void OnNavInvoked(MatNavItem item)
@@ -257,17 +360,21 @@ public partial class MainWindow : MatWindow
         {
             ShowSettings();
         }
-        else if (item == _navSources)
+        else if (item == _navConnections)
         {
-            ShowSources();
+            ShowConnections();
         }
-        else if (item == _navAnalyses)
+        else if (item == _navSchedules)
         {
-            ShowAnalyses();
+            ShowSchedules();
+        }
+        else if (item == _navProtocol)
+        {
+            ShowProtocol();
         }
         else
         {
-            ShowMap();
+            ShowJobs();
         }
     }
 
@@ -303,11 +410,11 @@ public partial class MainWindow : MatWindow
     private void RefreshCloudStatus()
     {
         var cloud = SettingsService.Get().Cloud;
-        var status = SyncService.Status;
+        var status = CloudSyncService.Status;
         (CloudText.Text, var dot) = status.State switch
         {
-            CloudState.Online => ($"Synchronisiert · {cloud.UserName}", "Mat.Success"),
-            CloudState.Syncing => ("Synchronisiere …", "Mat.Accent"),
+            CloudState.Online => ($"Abgeglichen · {cloud.UserName}", "Mat.Success"),
+            CloudState.Syncing => ("Gleiche ab …", "Mat.Accent"),
             CloudState.Connecting => ("Verbinde …", "Mat.Accent"),
             CloudState.Offline => ("Cloud nicht erreichbar", "Mat.Warning"),
             CloudState.SignedOut => ("Abgemeldet – neu anmelden", "Mat.Danger"),
@@ -319,37 +426,27 @@ public partial class MainWindow : MatWindow
             CloudDot.Use(Shape.FillProperty, dot);
         }
 
-        var tip = status.LastSync is { } last ? $"{status.Message} (zuletzt {last:HH:mm:ss})" : status.Message;
+        var tip = status.LastSync is { } last ? $"{status.Message} (zuletzt {last.ToLocalTime():HH:mm:ss})" : status.Message;
         ToolTip.SetTip(CloudStatus, IsSidebarCollapsed ? $"{CloudText.Text}\n{tip}" : tip);
         AutomationProperties.SetName(CloudStatus, CloudText.Text);
     }
 
-    /// <summary>The running analysis in the middle of the title bar: its source, how far, how much so far.</summary>
-    private void RefreshScanStatus()
+    private void OnRuns(object? sender, EventArgs e) => RefreshRunStatus();
+
+    /// <summary>The running jobs in the middle of the title bar: how many, how fast together.</summary>
+    private void RefreshRunStatus()
     {
-        if (ScanService.Current is not { } job)
+        var running = RunMonitor.Running;
+        RunStatus.IsVisible = running.Count > 0;
+        if (running.Count == 0)
         {
-            ScanStatus.IsVisible = false;
             return;
         }
 
-        var progress = job.Progress;
-        ScanStatus.IsVisible = true;
-        ScanProgress.IsIndeterminate = progress.ExpectedBytes is not > 0;
-        if (progress.ExpectedBytes is { } expected and > 0)
-        {
-            ScanProgress.Value = Math.Clamp((double)progress.Bytes / expected, 0, 1);
-        }
-
-        ScanText.Text = $"Analysiere {job.Source.Name} · {Ui.FormatSize(progress.Bytes)} · {Ui.FormatCount(progress.Files)} Dateien";
-        ToolTip.SetTip(ScanStatus, "Zur Karte");
+        var name = running.Count == 1 ? JobService.Find(running[0].JobId)?.Name ?? "1 Auftrag" : $"{running.Count} Aufträge";
+        RunText.Text = $"{name} · {Formats.Speed(RunMonitor.TotalBytesPerSecond)}";
+        ToolTip.SetTip(RunStatus, "Zur Aktivität");
     }
 
-    private void OnScanStatusClick(object? sender, RoutedEventArgs e)
-    {
-        if (ScanService.Current is { } job)
-        {
-            ShowMap(job.SourceId);
-        }
-    }
+    private void OnRunStatusClick(object? sender, RoutedEventArgs e) => ShowActivity();
 }

@@ -3,57 +3,127 @@
              xmlns:mat="using:MatDesktop"
              xmlns:controls="using:ThixSync.Controls"
              x:Class="ThixSync.Pages.SettingsPage">
-  <!-- Settings in tabs: Allgemein | Analyse | Cloud | Updates | Erweitert. A switch applies at once (like macOS). -->
+  <!-- Settings in tabs: Allgemein | Übertragung | Remote | Cloud | Updates | Erweitert. A switch applies at once (like macOS). -->
   <Border Background="{DynamicResource Mat.Surface}">
     <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-      <StackPanel Margin="28,22,28,28" MaxWidth="820" HorizontalAlignment="Left">
+      <StackPanel Margin="36,28,36,28" MaxWidth="880" HorizontalAlignment="Left">
         <TextBlock Text="Einstellungen" Theme="{StaticResource MatText.PageTitle}" />
-        <TextBlock x:Name="PolicyNote" Theme="{StaticResource MatText.Muted}" Margin="0,4,0,0" IsVisible="False"
-                   Text="Von deiner Organisation festgelegt: was eine Richtlinie bestimmt, ist hier ausgeschaltet." />
+        <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,4,0,0"
+                   Text="Die Einstellungen dieses Computers. Aufträge und Verbindungen gleicht die Cloud ab, diese Einstellungen nicht." />
+        <controls:InfoBar x:Name="PolicyNote" Margin="0,14,0,0" />
         <controls:InfoBar x:Name="PageMessage" Margin="0,14,0,0" />
 
-        <TabControl x:Name="Tabs" Margin="0,12,0,0">
+        <TabControl x:Name="Tabs" Margin="0,14,0,0">
           <!-- ===== General ===== -->
           <TabItem x:Name="GeneralTabItem" Header="Allgemein">
             <StackPanel>
-              <mat:MatSettingRow Title="Bei der Anmeldung starten" Description="ThixSync startet unsichtbar im Infobereich / in der Menüleiste und analysiert dort auf Wunsch regelmäßig.">
-                <ToggleSwitch x:Name="AutostartSwitch" OnContent="" OffContent="" AutomationProperties.Name="Bei der Anmeldung starten" />
-              </mat:MatSettingRow>
               <mat:MatSettingRow Title="Erscheinungsbild">
-                <ComboBox x:Name="ThemeChoice" MinWidth="170" AutomationProperties.Name="Erscheinungsbild">
+                <ComboBox x:Name="ThemeChoice" MinWidth="220" AutomationProperties.Name="Erscheinungsbild">
                   <ComboBoxItem Content="Wie das System" />
                   <ComboBoxItem Content="Hell" />
                   <ComboBoxItem Content="Dunkel" />
                 </ComboBox>
               </mat:MatSettingRow>
-              <mat:MatSettingRow Title="Vor dem Löschen fragen" BorderThickness="0"
-                                 Description="Lokal geht Gelöschtes in den Papierkorb, auf einer Netzwerkfreigabe ist es endgültig weg.">
-                <ToggleSwitch x:Name="ConfirmDeleteSwitch" OnContent="" OffContent="" AutomationProperties.Name="Vor dem Löschen fragen" />
+              <mat:MatSettingRow Title="Mitteilungen" Description="Wann ThixSync nach einem Lauf Bescheid gibt, den du nicht selbst gestartet hast.">
+                <ComboBox x:Name="NotifyChoice" MinWidth="220" AutomationProperties.Name="Mitteilungen">
+                  <ComboBoxItem Content="Nie" />
+                  <ComboBoxItem Content="Nur bei Problemen" />
+                  <ComboBoxItem Content="Bei Änderungen und Problemen" />
+                </ComboBox>
+              </mat:MatSettingRow>
+              <mat:MatSettingRow Title="Bei der Anmeldung starten" Description="ThixSync startet unsichtbar im Infobereich / in der Menüleiste und führt dort die geplanten Synchronisationen aus.">
+                <ToggleSwitch x:Name="AutostartSwitch" OnContent="" OffContent="" AutomationProperties.Name="Bei der Anmeldung starten" />
+              </mat:MatSettingRow>
+              <mat:MatSettingRow Title="Protokolle aufbewahren" BorderThickness="0" Description="Wie lange die Läufe mit ihren Zeilen auf diesem Computer bleiben.">
+                <ComboBox x:Name="KeepProtocolChoice" MinWidth="220" AutomationProperties.Name="Protokolle aufbewahren" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="KeepProtocolDays" Margin="0" />
+            </StackPanel>
+          </TabItem>
+
+          <!-- ===== Transfers ===== -->
+          <TabItem x:Name="TransferTabItem" Header="Übertragung">
+            <StackPanel>
+              <mat:MatSettingRow Title="Gleichzeitige Übertragungen" Description="Dateien, die ein Auftrag auf „automatisch“ zugleich kopiert. 0: ThixSync wählt je nach Quelle und Ziel.">
+                <NumericUpDown x:Name="ParallelismBox" Minimum="0" Maximum="128" Increment="1" FormatString="0" Width="160" AutomationProperties.Name="Gleichzeitige Übertragungen" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="DefaultParallelism" Margin="0" />
+              <mat:MatSettingRow Title="Gleichzeitige Aufträge" Description="So viele Synchronisationen laufen zugleich; weitere warten in der Reihe.">
+                <NumericUpDown x:Name="ConcurrentJobsBox" Minimum="1" Maximum="16" Increment="1" FormatString="0" Width="160" AutomationProperties.Name="Gleichzeitige Aufträge" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="MaxConcurrentJobs" Margin="0" />
+              <mat:MatSettingRow Title="Bandbreite begrenzen" Description="Höchstens so viele KB/s für alle Aufträge zusammen. 0: unbegrenzt.">
+                <NumericUpDown x:Name="BandwidthBox" Minimum="0" Maximum="10000000" Increment="512" FormatString="0" Width="160" AutomationProperties.Name="Bandbreite in KB/s" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="BandwidthLimitKiB" Margin="0" />
+              <mat:MatSettingRow Title="Wiederholungen" Description="So oft versucht ein Lauf eine Datei noch einmal, die nicht ging (gesperrt, Netz weg).">
+                <NumericUpDown x:Name="RetriesBox" Minimum="0" Maximum="10" Increment="1" FormatString="0" Width="160" AutomationProperties.Name="Wiederholungen" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="Retries" Margin="0" />
+              <mat:MatSettingRow Title="Kleine Dateien bis" Description="Dateien bis zu dieser Größe (KB) gehen gebündelt über die schnelle Spur – das hilft bei vielen kleinen Dateien.">
+                <NumericUpDown x:Name="SmallFilesBox" Minimum="0" Maximum="1048576" Increment="256" FormatString="0" Width="160" AutomationProperties.Name="Kleine Dateien bis KB" />
+              </mat:MatSettingRow>
+              <mat:MatFormField controls:FormErrors.Field="SmallFileThresholdKiB" Margin="0" />
+              <mat:MatSettingRow Title="Im Akkubetrieb pausieren" BorderThickness="0" Description="Läuft der Computer mit Akku, starten keine Aufträge nach Zeitplan. Von Hand geht es weiter.">
+                <ToggleSwitch x:Name="BatterySwitch" OnContent="" OffContent="" AutomationProperties.Name="Im Akkubetrieb pausieren" />
               </mat:MatSettingRow>
             </StackPanel>
           </TabItem>
 
-          <!-- ===== Analyses ===== -->
-          <TabItem x:Name="AnalysisTabItem" Header="Analyse">
+          <!-- ===== Remote ===== -->
+          <TabItem x:Name="RemoteTabItem" Header="Remote">
             <StackPanel>
-              <mat:MatSettingRow Title="Automatisch analysieren"
-                                 Description="Die Quellen dieses Computers werden im Hintergrund neu analysiert, damit du siehst, was sich verändert.">
-                <ComboBox x:Name="AutoScanChoice" MinWidth="170" AutomationProperties.Name="Automatisch analysieren">
-                  <ComboBoxItem Content="Nie" />
-                  <ComboBoxItem Content="Täglich" />
-                  <ComboBoxItem Content="Wöchentlich" />
-                  <ComboBoxItem Content="Monatlich" />
-                </ComboBox>
+              <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,12"
+                         Text="Mit ThixSync Remote gleicht ein anderer Computer direkt mit Ordnern dieses Computers ab – verschlüsselt, ohne Cloud dazwischen. Er braucht einmal einen Kopplungscode von hier." />
+              <controls:InfoBar x:Name="RemoteMessage" />
+              <mat:MatSettingRow Title="Andere Computer dürfen sich verbinden" Description="Nur gekoppelte Computer, nur die Freigaben unten.">
+                <ToggleSwitch x:Name="RemoteSwitch" OnContent="" OffContent="" AutomationProperties.Name="Andere Computer dürfen sich verbinden" />
               </mat:MatSettingRow>
-              <mat:MatFormField controls:FormErrors.Field="AutoScan" Margin="0" />
-              <mat:MatSettingRow Title="Veränderungen melden" Description="Nach einer automatischen Analyse sagt eine Mitteilung, wie viel dazugekommen oder weggefallen ist.">
-                <ToggleSwitch x:Name="NotifySwitch" OnContent="" OffContent="" AutomationProperties.Name="Veränderungen melden" />
+              <mat:MatSettingRow Title="Port" Description="TCP-Port, auf dem dieser Computer wartet (Standard 47600).">
+                <NumericUpDown x:Name="PortBox" Minimum="1024" Maximum="65535" Increment="1" FormatString="0" Width="160" AutomationProperties.Name="Port" />
               </mat:MatSettingRow>
-              <mat:MatSettingRow Title="Analysen behalten" BorderThickness="0"
-                                 Description="Je Quelle bleiben so viele Analysen gespeichert (auch in der Cloud); die ältesten gehen zuerst.">
-                <ComboBox x:Name="KeepChoice" MinWidth="170" AutomationProperties.Name="Analysen behalten" />
+              <mat:MatFormField controls:FormErrors.Field="Port" Margin="0" />
+              <mat:MatSettingRow x:Name="FingerprintRow" Title="Fingerabdruck dieses Computers" BorderThickness="0"
+                                 Description="Der andere Computer zeigt ihn beim Koppeln – vergleiche ihn.">
+                <SelectableTextBlock x:Name="FingerprintText" FontFamily="{DynamicResource Mat.Mono}" FontSize="{DynamicResource Mat.FontSizeSm}" MaxWidth="360" TextWrapping="Wrap" />
               </mat:MatSettingRow>
-              <mat:MatFormField controls:FormErrors.Field="KeepAnalyses" Margin="0" />
+
+              <TextBlock Text="Freigaben" Theme="{StaticResource MatText.SectionTitle}" FontSize="{DynamicResource Mat.FontSizeLg}" Margin="0,20,0,10" />
+              <StackPanel x:Name="SharesList" Spacing="8" />
+              <Grid ColumnDefinitions="200,*,Auto,Auto" Margin="0,10,0,0">
+                <mat:MatFormField controls:FormErrors.Field="Name" Label="Name der Freigabe" Margin="0,0,10,0">
+                  <TextBox x:Name="ShareNameBox" Watermark="z. B. Dokumente" />
+                </mat:MatFormField>
+                <mat:MatFormField Grid.Column="1" controls:FormErrors.Field="LocalPath" Label="Ordner" Margin="0,0,10,0">
+                  <TextBox x:Name="SharePathBox" />
+                </mat:MatFormField>
+                <Button Grid.Column="2" VerticalAlignment="Top" Margin="0,25,10,0" Click="OnPickShareFolderClick">
+                  <controls:IconLabel Icon="folder-open" Text="Durchsuchen …" />
+                </Button>
+                <Button Grid.Column="3" x:Name="AddShareButton" VerticalAlignment="Top" Margin="0,25,0,0" Click="OnAddShareClick">
+                  <controls:IconLabel Icon="plus" Text="Hinzufügen" />
+                </Button>
+              </Grid>
+
+              <TextBlock Text="Koppeln" Theme="{StaticResource MatText.SectionTitle}" FontSize="{DynamicResource Mat.FontSizeLg}" Margin="0,18,0,10" />
+              <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,12"
+                         Text="Auf dem anderen Computer: Geräte › Neue Verbindung › ThixSync Remote, dann den Code von hier eingeben." />
+              <controls:ActionBar>
+                <Button x:Name="PairingButton" Theme="{StaticResource MatButton.Primary}" Click="OnPairingClick">
+                  <controls:IconLabel Icon="link" Text="Kopplungscode anzeigen" />
+                </Button>
+              </controls:ActionBar>
+              <Border x:Name="PairingCard" Theme="{StaticResource MatCard}" IsVisible="False" Margin="0,14,0,0" MaxWidth="520" HorizontalAlignment="Left" Padding="22,18">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Kopplungscode" Theme="{StaticResource MatText.Muted}" />
+                  <SelectableTextBlock x:Name="PairingCodeText" FontFamily="{DynamicResource Mat.Mono}" FontSize="40" FontWeight="SemiBold" LetterSpacing="6"
+                                       Foreground="{DynamicResource Mat.AccentText}" AutomationProperties.Name="Kopplungscode" />
+                  <TextBlock x:Name="PairingExpiryText" Theme="{StaticResource MatText.Muted}" />
+                </StackPanel>
+              </Border>
+
+              <TextBlock Text="Gekoppelte Computer" Theme="{StaticResource MatText.SectionTitle}" FontSize="{DynamicResource Mat.FontSizeLg}" Margin="0,22,0,10" />
+              <StackPanel x:Name="PeersList" Spacing="8" />
             </StackPanel>
           </TabItem>
 
@@ -61,7 +131,7 @@
           <TabItem x:Name="CloudTabItem" Header="Cloud">
             <StackPanel>
               <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,16"
-                         Text="Mit MatCloud sind deine Quellen und Analysen auf allen PCs und Macs gleich – so siehst du auch die Laufwerke deiner anderen Computer und wie sie sich verändern." />
+                         Text="Mit der MatCloud sind deine Synchronisationsprofile (Aufträge und Verbindungen ohne Passwörter) auf allen Geräten gleich. Passwörter, Protokolle und Einstellungen bleiben auf jedem Computer." />
               <controls:InfoBar x:Name="CloudMessage" />
 
               <!-- Not connected: sign in, in the browser (every account, also MatIdentity) or with user name and password -->
@@ -78,7 +148,7 @@
                   <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,12"
                              Text="Die Anmeldung öffnet sich im Browser: Melde dich dort an – mit deinem Konto der MatCloud oder über MatIdentity – und bestätige den Code, den ThixSync dir zeigt." />
                   <controls:ActionBar>
-                    <Button x:Name="BrowserConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnBrowserConnectClick" IsDefault="True">
+                    <Button x:Name="BrowserConnectButton" Theme="{StaticResource MatButton.Primary}" Click="OnBrowserConnectClick">
                       <controls:IconLabel Icon="globe" Text="Im Browser anmelden" />
                     </Button>
                     <Button x:Name="ShowPasswordSignInButton" Click="OnShowPasswordSignInClick">
@@ -144,7 +214,7 @@
                 </Border>
                 <controls:ActionBar>
                   <Button Theme="{StaticResource MatButton.Primary}" Click="OnSyncNowClick">
-                    <controls:IconLabel Icon="refresh" Text="Jetzt synchronisieren" />
+                    <controls:IconLabel Icon="refresh" Text="Jetzt abgleichen" />
                   </Button>
                   <Button Click="OnOpenCloudClick">
                     <controls:IconLabel Icon="external" Text="Im Browser öffnen" />
@@ -187,7 +257,7 @@
                 <ToggleSwitch x:Name="CheckUpdatesSwitch" OnContent="" OffContent="" AutomationProperties.Name="Automatisch nach Updates suchen" />
               </mat:MatSettingRow>
               <mat:MatSettingRow Title="Updates automatisch installieren" BorderThickness="0"
-                                   Description="Full-Auto-Update: neue Versionen werden ohne Rückfrage installiert, ThixSync startet danach neu im Hintergrund.">
+                                 Description="Full-Auto-Update: neue Versionen werden ohne Rückfrage installiert, ThixSync startet danach neu im Hintergrund.">
                 <ToggleSwitch x:Name="AutoInstallSwitch" OnContent="" OffContent="" AutomationProperties.Name="Updates automatisch installieren" />
               </mat:MatSettingRow>
             </StackPanel>
@@ -196,18 +266,46 @@
           <!-- ===== Advanced ===== -->
           <TabItem x:Name="AdvancedTabItem" Header="Erweitert">
             <StackPanel>
+              <TextBlock Text="Eigene App-Registrierungen" Theme="{StaticResource MatText.SectionTitle}" FontSize="{DynamicResource Mat.FontSizeLg}" Margin="0,0,0,6" />
+              <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,0,0,14"
+                         Text="Für die Anmeldung bei Google Drive, OneDrive, SharePoint, Dropbox und Box nutzt ThixSync eigene App-Registrierungen. Leer: die eingebauten. Organisationen tragen hier ihre eigenen ein." />
+              <Grid ColumnDefinitions="*,16,*" Width="760" HorizontalAlignment="Left">
+                <StackPanel>
+                  <mat:MatFormField Label="Google – Client-ID"><TextBox x:Name="GoogleIdBox" /></mat:MatFormField>
+                  <mat:MatFormField Label="Microsoft – Client-ID" Hint="OneDrive und SharePoint"><TextBox x:Name="MicrosoftIdBox" /></mat:MatFormField>
+                  <mat:MatFormField Label="Box – Client-ID"><TextBox x:Name="BoxIdBox" /></mat:MatFormField>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <mat:MatFormField Label="Google – Client-Secret"><TextBox x:Name="GoogleSecretBox" PasswordChar="●" /></mat:MatFormField>
+                  <mat:MatFormField Label="Dropbox – App-Key"><TextBox x:Name="DropboxIdBox" /></mat:MatFormField>
+                  <mat:MatFormField Label="Box – Client-Secret"><TextBox x:Name="BoxSecretBox" PasswordChar="●" /></mat:MatFormField>
+                </StackPanel>
+              </Grid>
+              <controls:ActionBar Margin="0,0,0,20">
+                <Button x:Name="SaveOAuthButton" Click="OnSaveOAuthClick">
+                  <controls:IconLabel Icon="save" Text="App-Registrierungen speichern" />
+                </Button>
+              </controls:ActionBar>
+
               <mat:MatSettingRow Title="Datenordner" x:Name="DataFolderRow">
                 <Button Click="OnOpenDataFolderClick">
                   <controls:IconLabel Icon="external" Text="Öffnen" />
                 </Button>
               </mat:MatSettingRow>
-              <mat:MatSettingRow Title="Protokolle" x:Name="LogFolderRow" BorderThickness="0">
+              <mat:MatSettingRow Title="Problembericht" x:Name="LogFolderRow"
+                                 Description="Stürzt ThixSync ab oder hängt es, steht ein Bericht im Log-Ordner – schick ihn mit, wenn du ein Problem meldest.">
                 <Button Click="OnOpenLogFolderClick">
-                  <controls:IconLabel Icon="external" Text="Öffnen" />
+                  <controls:IconLabel Icon="file-text" Text="Log-Ordner öffnen" />
+                </Button>
+              </mat:MatSettingRow>
+              <mat:MatSettingRow Title="Einstellungen zurücksetzen" BorderThickness="0"
+                                 Description="Alle Einstellungen dieses Computers auf den Anfang – Aufträge, Verbindungen, Cloud und Remote bleiben.">
+                <Button x:Name="ResetButton" Theme="{StaticResource MatButton.Danger}" Click="OnResetClick">
+                  <controls:IconLabel Icon="restore" Text="Zurücksetzen" />
                 </Button>
               </mat:MatSettingRow>
               <TextBlock Theme="{StaticResource MatText.Muted}" Margin="0,16,0,0"
-                         Text="Administratoren können ThixSync per Richtlinie einschränken (LockConfiguration, DisableCloud, DisableUpdates, DisableDelete, DisableShares) – unter Windows in HKLM\SOFTWARE\Policies\ThixSync, unter macOS per Konfigurationsprofil info.schmoldt.thixsync." />
+                         Text="Administratoren können ThixSync per Richtlinie einschränken (LockConfiguration, DisableCloud, DisableUpdates, DisableDelete, DisableCloudStorage, DisableRemote) – unter Windows in HKLM\SOFTWARE\Policies\ThixSync, unter macOS per Konfigurationsprofil info.schmoldt.thixsync." />
             </StackPanel>
           </TabItem>
         </TabControl>

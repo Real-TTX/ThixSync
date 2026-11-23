@@ -13,7 +13,7 @@ namespace ThixSync.Setup;
 /// The Windows setup of ThixSync in MatDesktop's setup window (SETUP-01, SETUP-02): one window for install, update and
 /// uninstall, 600 × 560, the footer with "Version x · channel" (SETUP-07). Install: Welcome (per user, no administrator
 /// rights, where to: SETUP-03) → Options → Progress → Finish. Update: Welcome with the installed and the new version →
-/// Progress → Finish. Uninstall: what goes and "Auch meine Quellen und Analysen löschen" (off) → Progress → Finish (SETUP-04). The work
+/// Progress → Finish. Uninstall: what goes and "Auch meine Aufträge, Verbindungen und Protokolle löschen" (off) → Progress → Finish (SETUP-04). The work
 /// (InstallService, business layer) runs on a background task and reports its steps; the window only steers and cannot be
 /// closed halfway through.
 /// </summary>
@@ -76,18 +76,18 @@ internal static class ThixSyncSetup
         {
             MatSetupMode.Uninstall =>
             [
-                MatSetupStep.Uninstall("Programm, Startmenü-Eintrag, Desktop-Verknüpfung und Autostart werden entfernt. Quellen und Analysen in der MatCloud bleiben in der Cloud."),
+                MatSetupStep.Uninstall("Programm, Startmenü-Eintrag, Desktop-Verknüpfung und Autostart werden entfernt. Deine Dateien bleiben, wo sie sind; Aufträge und Verbindungen in der MatCloud bleiben in der Cloud."),
             ],
             MatSetupMode.Update =>
             [
-                MatSetupStep.Welcome(string.Empty, Note("Ein laufendes ThixSync wird beendet und danach wieder gestartet. Deine Quellen und Analysen bleiben erhalten.")),
+                MatSetupStep.Welcome(string.Empty, Note("Ein laufendes ThixSync wird beendet und danach wieder gestartet. Laufende Synchronisationen setzen danach fort; Aufträge und Verbindungen bleiben erhalten.")),
             ],
             _ =>
             [
                 // SETUP-03: for the user, without administrator rights, and where to. The folder on a line of its own: wrapped
                 // inside a sentence the path breaks after "C:".
                 MatSetupStep.Welcome(
-                    "ThixSync zeigt auf einer interaktiven Karte, was deine Laufwerke und Netzwerkfreigaben füllt – und was sich seit der letzten Analyse verändert hat.",
+                    "ThixSync hält deine Ordner gleich und sichert sie – zwischen diesem Computer, externen Laufwerken, NAS, Servern, Cloud-Speichern und anderen Computern. Nach Zeitplan, bei Änderungen oder auf Knopfdruck.",
                     Note($"Wird für dein Benutzerkonto installiert – ohne Administratorrechte – nach\n{programFolder}")),
                 MatSetupStep.WithOptions(null, [.. Options()]),
             ],
@@ -103,8 +103,8 @@ internal static class ThixSyncSetup
             WordMark = WordMark(),
             InstalledVersion = installedVersion ?? "eine ältere Version",
             Finish = finish,
-            DeleteDataText = "Auch meine Quellen und Analysen löschen",
-            DeleteDataDescription = "Die Quellen, Analysen und Einstellungen auf diesem Computer. Ohne Haken bleiben sie für eine spätere Installation erhalten.",
+            DeleteDataText = "Auch meine Aufträge, Verbindungen und Protokolle löschen",
+            DeleteDataDescription = "Aufträge, Verbindungen, Passwörter, Protokolle und Einstellungen auf diesem Computer. Ohne Haken bleiben sie für eine spätere Installation erhalten. Deine synchronisierten Dateien werden nie gelöscht.",
         });
         return window;
     }
@@ -118,7 +118,7 @@ internal static class ThixSyncSetup
         var config = InstallerOptions.Config;
         if (config.Autostart is { } autostart)
         {
-            yield return MatSetupOption.Autostart("Im Infobereich, ohne Fenster") with { IsOn = autostart.Default };
+            yield return MatSetupOption.Autostart("Im Infobereich, ohne Fenster – damit Zeitpläne laufen") with { IsOn = autostart.Default };
         }
 
         if (config.DesktopShortcut is { } shortcut)
@@ -132,6 +132,8 @@ internal static class ThixSyncSetup
         }
 
         // ThixSync opens no files: installer.json offers no file types, so there is no switch for them.
+        // TODO(integration): the CLI work adds InstallerConfig.CliPath ("Befehlszeile thixsync-cli zum PATH hinzufügen", Windows only) and
+        // InstallChoices(..., bool? CliPath = null): offer it here as an option with the key "cli" and pass it on in Choices once it is merged.
     }
 
     /// <summary>The answers of the Options step as install choices.</summary>
@@ -140,11 +142,11 @@ internal static class ThixSyncSetup
         options.TryGetValue("autostart", out var autostart) ? autostart : null,
         options.TryGetValue("updates", out var updates) ? updates : null);
 
-    /// <summary>The word mark of the title bar ("Thix" and "Space" in the accent text) for the header of the setup.</summary>
+    /// <summary>The word mark of the title bar ("Thix" and "Sync" in the accent text) for the header of the setup.</summary>
     private static TextBlock WordMark()
     {
         var mark = new TextBlock { FontSize = MatTokens.Type.Fs2xl, FontWeight = Avalonia.Media.FontWeight.SemiBold };
-        var accent = new Run("Space");
+        var accent = new Run("Sync");
         accent.Bind(TextElement.ForegroundProperty, mark.GetResourceObservable("Mat.AccentText"));
         mark.Inlines = [new Run("Thix"), accent];
         return mark;
@@ -159,5 +161,5 @@ internal static class ThixSyncSetup
     }
 
     private static string UninstalledText(bool deleteData) =>
-        deleteData ? "Programm, Quellen und Analysen wurden entfernt." : "Das Programm wurde entfernt. Deine Quellen und Analysen bleiben erhalten.";
+        deleteData ? "Programm, Aufträge und Verbindungen wurden entfernt. Deine Dateien sind unberührt." : "Das Programm wurde entfernt. Deine Aufträge und Verbindungen bleiben erhalten.";
 }
