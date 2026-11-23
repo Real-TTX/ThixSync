@@ -1,16 +1,16 @@
 # ThixSync – Logo
 
-Eine Treemap – die Karte dessen, was ein Laufwerk füllt – auf einer petrolfarbenen Kachel: der große weiße Block ist der größte
-Ordner, die kleineren werden blasser, der **gelbe** Block ist der, der seit der letzten Analyse gewachsen ist. Akzentfarbe
-**#0E8074** (weißer Text 4,8 : 1), Verlauf der Kachel **#3DD9BE → #0E8074**, Gelb **#FFC857**, dunkles Petrol **#0B5E55** (Wolke).
+Zwei Pfeile, die einander auf einem Kreis folgen – Dateien, die auf beiden Seiten gleich gehalten werden – auf einer blauen
+Kachel. Akzentfarbe **#1A5FD6** (weißer Text 5,6 : 1), Verlauf der Kachel **#5AA9FF → #1A5FD6**, dunkles Blau **#123F8F** (Wolke).
+Die Geometrie wird erzeugt (Kreis, Bögen und Pfeilspitzen auf einem 256er-Raster), damit alle Detailstufen dieselben Pfeile zeigen.
 
 | Datei | Detailstufe | Einsatz |
 |---|---|---|
-| `logo-icon.svg` | voll (ab 48 px): fünf Blöcke, einer gelb | App-Icon (Windows .ico ab 48 px, macOS .icns), Fenster, Über-Seite |
-| `logo-small.svg` | reduziert (16–32 px): drei dicke Blöcke, Kachel randlos | Favicon, kleine .ico-Größen, Taskleiste |
-| `logo-tray.svg` | einfarbig, ohne Kachel: drei Blöcke | macOS-Menüleiste (Template-Bild, das System färbt es) |
+| `logo-icon.svg` | voll (ab 48 px): zwei Pfeile mit Verlaufskachel | App-Icon (Windows .ico ab 48 px, macOS .icns), Fenster, Über-Seite |
+| `logo-small.svg` | reduziert (16–32 px): dickere, größere Pfeile, Kachel randlos, einfarbig | Favicon, kleine .ico-Größen, Taskleiste |
+| `logo-tray.svg` | einfarbig, ohne Kachel: die zwei Pfeile | macOS-Menüleiste (Template-Bild, das System färbt es) |
 | `logo-cloud.svg` | voll, randlose Kachel mit Wolke | Kachel für Startbildschirme und die MatCloud (auch „maskable“): `png/thixsync-cloud-*.png` |
-| `logo-full.svg` | Icon + Wortmarke „Thix**Space**“ | README, Kopfzeilen, Über-Seiten |
+| `logo-full.svg` | Icon + Wortmarke „Thix**Sync**“ | README, Kopfzeilen, Über-Seiten |
 
 `png/` enthält alle gerenderten Größen. Neu erzeugen (nach jeder Änderung an einer SVG):
 
