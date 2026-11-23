@@ -131,16 +131,24 @@ internal static class ThixSyncSetup
             yield return MatSetupOption.AutomaticUpdates("Neue Versionen ohne Rückfrage, ThixSync startet danach neu") with { IsOn = updates.Default };
         }
 
+        if (config.CliPath is { } cliPath && OperatingSystem.IsWindows())
+        {
+            yield return new MatSetupOption(CliOptionKey, "Befehlszeile thixsync-cli zum PATH hinzufügen",
+                "Damit „thixsync-cli“ in jeder Eingabeaufforderung und PowerShell bereitsteht", cliPath.Default);
+        }
+
         // ThixSync opens no files: installer.json offers no file types, so there is no switch for them.
-        // TODO(integration): the CLI work adds InstallerConfig.CliPath ("Befehlszeile thixsync-cli zum PATH hinzufügen", Windows only) and
-        // InstallChoices(..., bool? CliPath = null): offer it here as an option with the key "cli" and pass it on in Choices once it is merged.
     }
 
     /// <summary>The answers of the Options step as install choices.</summary>
     internal static InstallChoices Choices(IReadOnlyDictionary<string, bool> options) => new(
         options.TryGetValue("shortcut", out var shortcut) ? shortcut : null,
         options.TryGetValue("autostart", out var autostart) ? autostart : null,
-        options.TryGetValue("updates", out var updates) ? updates : null);
+        options.TryGetValue("updates", out var updates) ? updates : null,
+        CliPath: options.TryGetValue(CliOptionKey, out var cliPath) ? cliPath : null);
+
+    /// <summary>The key of the switch "thixsync-cli on the PATH" in the Options step.</summary>
+    internal const string CliOptionKey = "cli";
 
     /// <summary>The word mark of the title bar ("Thix" and "Sync" in the accent text) for the header of the setup.</summary>
     private static TextBlock WordMark()

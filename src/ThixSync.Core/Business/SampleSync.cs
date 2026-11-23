@@ -48,6 +48,9 @@ public static class SampleSync
         CreateJobs();
         CreateRuns();
         CreateRemote();
+
+        // the analysis of "Projekte NAS" with its open conflicts, kept like after "Analysieren" (details page, resolving)
+        JobRunner.KeepPlan(JobService.Get(ProjectsJobId), Plan());
     }
 
     /// <summary>A folder of the sample computer in the notation of this system ("C:\Users\Anna\Dokumente", "/Users/anna/Documents").</summary>

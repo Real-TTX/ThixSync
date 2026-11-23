@@ -518,8 +518,8 @@ public sealed class UiTests
         }
 
         var options = Setup.ThixSyncSetup.Options().ToDictionary(option => option.Key, option => option.IsOn);
-        Assert.Equal(new Dictionary<string, bool> { ["autostart"] = true, ["shortcut"] = true, ["updates"] = true }, options);
-        Assert.Equal(new InstallChoices(true, true, true), Setup.ThixSyncSetup.Choices(options));
+        Assert.Equal(new Dictionary<string, bool> { ["autostart"] = true, ["shortcut"] = true, ["updates"] = true, ["cli"] = true }, options);
+        Assert.Equal(new InstallChoices(true, true, true, CliPath: true), Setup.ThixSyncSetup.Choices(options));
     }
 
     [Fact]

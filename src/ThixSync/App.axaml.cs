@@ -125,6 +125,7 @@ public partial class App : Application
         CloudSyncService.Start();
         SchedulerService.Start();
         RemoteServer.Start();
+        StoreWatcher.Start(); // what the CLI changes shows here at once
         _ = ConnectFromLauncherAsync();
         _ = Task.Run(() =>
         {
@@ -271,6 +272,7 @@ public partial class App : Application
         }
 
         Step("scheduler", SchedulerService.Stop);
+        Step("store watcher", StoreWatcher.Stop);
         Step("running jobs", () =>
         {
             foreach (var progress in RunMonitor.Running)

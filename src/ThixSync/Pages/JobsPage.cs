@@ -173,6 +173,7 @@ public sealed class JobsPage : UserControl
         JobService.Changed += OnChanged;
         ConnectionService.Changed += OnChanged;
         ProtocolService.Changed += OnRunWritten;
+        ProtocolService.ExternalChange += OnExternalChange;
         RunMonitor.Changed += OnProgress;
         RunMonitor.RunsChanged += OnRunsChanged;
     }
@@ -182,6 +183,7 @@ public sealed class JobsPage : UserControl
         JobService.Changed -= OnChanged;
         ConnectionService.Changed -= OnChanged;
         ProtocolService.Changed -= OnRunWritten;
+        ProtocolService.ExternalChange -= OnExternalChange;
         RunMonitor.Changed -= OnProgress;
         RunMonitor.RunsChanged -= OnRunsChanged;
     }
@@ -189,6 +191,9 @@ public sealed class JobsPage : UserControl
     private void OnChanged(object? sender, EventArgs e) => Ui.Post(Refresh);
 
     private void OnRunWritten(object? sender, SyncRun run) => Ui.Post(Refresh);
+
+    /// <summary>The CLI (another process) wrote runs.</summary>
+    private void OnExternalChange(object? sender, EventArgs e) => Ui.Post(Refresh);
 
     private void OnRunsChanged(object? sender, EventArgs e) => Refresh();
 

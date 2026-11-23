@@ -81,7 +81,15 @@ public sealed class ProtocolPage : UserControl
         page.Children.Add(_table);
         Content = page;
 
-        Ui.WhileShown(this, () => ProtocolService.Changed += OnRunWritten, () => ProtocolService.Changed -= OnRunWritten, LoadJobsAndRefresh);
+        Ui.WhileShown(this, () =>
+        {
+            ProtocolService.Changed += OnRunWritten;
+            ProtocolService.ExternalChange += OnExternalChange;
+        }, () =>
+        {
+            ProtocolService.Changed -= OnRunWritten;
+            ProtocolService.ExternalChange -= OnExternalChange;
+        }, LoadJobsAndRefresh);
     }
 
     public DataTable<SyncRun> Table => _table;
@@ -154,6 +162,9 @@ public sealed class ProtocolPage : UserControl
     }
 
     private void OnRunWritten(object? sender, SyncRun run) => Ui.Post(Refresh);
+
+    /// <summary>The CLI (another process) wrote runs.</summary>
+    private void OnExternalChange(object? sender, EventArgs e) => Ui.Post(Refresh);
 }
 
 /// <summary>
