@@ -61,7 +61,8 @@ env:
   DOTNET_VERSION: '10.0.x'
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  # OAuth client ids of the app registrations, read by MSBuild as properties (empty: the defaults of the build).
+  # The app registrations of the cloud storages (docs/APP-REGISTRIERUNG.md): MSBuild reads these variables as the properties of
+  # Directory.Build.props and bakes them into the program. A missing secret leaves the type without a built-in registration.
   ThixSyncGoogleClientId: ${{ secrets.THIXSYNC_GOOGLE_CLIENT_ID }}
   ThixSyncGoogleClientSecret: ${{ secrets.THIXSYNC_GOOGLE_CLIENT_SECRET }}
   ThixSyncMicrosoftClientId: ${{ secrets.THIXSYNC_MICROSOFT_CLIENT_ID }}

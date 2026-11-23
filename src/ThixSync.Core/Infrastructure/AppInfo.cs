@@ -32,6 +32,23 @@ public static class AppInfo
 
     public static bool IsLocalBuild => Channel == "local";
 
+    /// <summary>The built-in Google app registration ("Desktop app" client; empty when the build has none).</summary>
+    public static string BuiltInGoogleClientId { get; } = ReadMetadata("ThixSyncGoogleClientId") ?? "";
+
+    /// <summary>The "secret" of the Google desktop client (not confidential by Google's own definition).</summary>
+    public static string BuiltInGoogleClientSecret { get; } = ReadMetadata("ThixSyncGoogleClientSecret") ?? "";
+
+    /// <summary>The built-in Microsoft Entra registration (public client, OneDrive and SharePoint).</summary>
+    public static string BuiltInMicrosoftClientId { get; } = ReadMetadata("ThixSyncMicrosoftClientId") ?? "";
+
+    /// <summary>The built-in Dropbox app key (PKCE, no secret).</summary>
+    public static string BuiltInDropboxClientId { get; } = ReadMetadata("ThixSyncDropboxClientId") ?? "";
+
+    /// <summary>The built-in Box app (client id + secret: Box has no public clients).</summary>
+    public static string BuiltInBoxClientId { get; } = ReadMetadata("ThixSyncBoxClientId") ?? "";
+
+    public static string BuiltInBoxClientSecret { get; } = ReadMetadata("ThixSyncBoxClientSecret") ?? "";
+
     /// <summary>"Windows" or "macOS" (sent to the cloud with the device).</summary>
     public static string PlatformName => OperatingSystem.IsWindows() ? "Windows" : OperatingSystem.IsMacOS() ? "macOS" : RuntimeInformation.OSDescription;
 

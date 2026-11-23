@@ -55,11 +55,35 @@
     <InformationalVersion>local-$(BuildDate)</InformationalVersion>
   </PropertyGroup>
 
-  <!-- The running program needs channel and build number (update check, about page). -->
+  <!--
+    The OAuth app registrations of the cloud storages (Google Drive, OneDrive/SharePoint, Dropbox, Box; docs/APP-REGISTRIERUNG.md).
+    Users never see them: they just sign in. They come from the environment (CI: the repository secrets THIXSYNC_GOOGLE_CLIENT_ID,
+    THIXSYNC_GOOGLE_CLIENT_SECRET, THIXSYNC_MICROSOFT_CLIENT_ID, THIXSYNC_DROPBOX_CLIENT_ID, THIXSYNC_BOX_CLIENT_ID and
+    THIXSYNC_BOX_CLIENT_SECRET, mapped in desktop.yml) or from secrets.local.props next to this file (ignored by git, template:
+    secrets.local.props.example). Empty: that type cannot sign in until the user enters an own registration (Einstellungen › Erweitert).
+    Desktop apps cannot keep a secret: the Google and Box "client secrets" of a desktop app are not confidential.
+  -->
+  <Import Project="secrets.local.props" Condition="Exists('$(MSBuildThisFileDirectory)secrets.local.props')" />
+  <PropertyGroup>
+    <ThixSyncGoogleClientId Condition="'$(ThixSyncGoogleClientId)' == ''"></ThixSyncGoogleClientId>
+    <ThixSyncGoogleClientSecret Condition="'$(ThixSyncGoogleClientSecret)' == ''"></ThixSyncGoogleClientSecret>
+    <ThixSyncMicrosoftClientId Condition="'$(ThixSyncMicrosoftClientId)' == ''"></ThixSyncMicrosoftClientId>
+    <ThixSyncDropboxClientId Condition="'$(ThixSyncDropboxClientId)' == ''"></ThixSyncDropboxClientId>
+    <ThixSyncBoxClientId Condition="'$(ThixSyncBoxClientId)' == ''"></ThixSyncBoxClientId>
+    <ThixSyncBoxClientSecret Condition="'$(ThixSyncBoxClientSecret)' == ''"></ThixSyncBoxClientSecret>
+  </PropertyGroup>
+
+  <!-- The running program needs channel, build number and the app registrations (update check, about page, sign-in). -->
   <ItemGroup>
     <AssemblyMetadata Include="ThixSyncChannel" Value="$(Channel)" />
     <AssemblyMetadata Include="ThixSyncBuildNumber" Value="$(BuildNumber)" />
     <AssemblyMetadata Include="ThixSyncRepository" Value="Real-TTX/ThixSync" />
+    <AssemblyMetadata Include="ThixSyncGoogleClientId" Value="$(ThixSyncGoogleClientId)" />
+    <AssemblyMetadata Include="ThixSyncGoogleClientSecret" Value="$(ThixSyncGoogleClientSecret)" />
+    <AssemblyMetadata Include="ThixSyncMicrosoftClientId" Value="$(ThixSyncMicrosoftClientId)" />
+    <AssemblyMetadata Include="ThixSyncDropboxClientId" Value="$(ThixSyncDropboxClientId)" />
+    <AssemblyMetadata Include="ThixSyncBoxClientId" Value="$(ThixSyncBoxClientId)" />
+    <AssemblyMetadata Include="ThixSyncBoxClientSecret" Value="$(ThixSyncBoxClientSecret)" />
   </ItemGroup>
 
 </Project>
