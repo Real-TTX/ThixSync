@@ -1,111 +1,70 @@
-<p align="center"><img src="branding/png/thixsync-full.png" alt="ThixSync" width="440"></p>
+<p align="center"><img src="branding/png/thixsync-full.png" alt="ThixSync" width="420"></p>
 
 # ThixSync
 
-**Speicheranalyse für Windows und macOS** – eine interaktive Karte zeigt, was deine Laufwerke und Netzwerkfreigaben füllt,
-und jede neue Analyse zeigt, was seit der letzten gewachsen oder geschrumpft ist. Inspiriert von WinDirStat und dem
-Speicheranalysator von Synology, im Look der Mat-Familie.
+Synchronisation und Backup für **Windows und macOS** – Teil der ThixApps. ThixSync hält Ordner zwischen Computer, USB-Laufwerk,
+NAS, Server und Cloud gleich: **bidirektional**, als **Spiegel** oder als **Backup mit Versionen**. Konflikte erkennt es, alle
+Änderungen zeigt es vorher in einer Vorschau, und Aufträge laufen von Hand, nach Zeitplan oder automatisch bei Änderungen – mit
+Fortschritt, Geschwindigkeit (MB/s **und** Dateien/s) und Protokoll. Viele kleine Dateien kopiert ThixSync parallel.
 
-- **Interaktive Karte (Treemap)**: jede Datei ist eine Kachel so groß wie ihr Anteil, Ordner rahmen ihren Inhalt ein, die Farbe
-  sagt die Art (Videos, Bilder, Audio, Dokumente, Archive, Programme, Entwicklung, System & Cache, Sonstige). Klick wählt,
-  Doppelklick zoomt in den Ordner, der Pfad darüber zoomt wieder hinaus, Rechtsklick öffnet das Menü.
-- **Liste daneben in Tabs**: *Ordner* als Baum mit Anteil, Größe und Veränderung, *Größte Dateien*, *Veränderungen* (was seit
-  der gewählten früheren Analyse dazukam, wuchs, schrumpfte oder verschwand) und *Dateitypen* (Klick hebt die Art auf der Karte hervor).
-  Liste und Karte wählen immer dasselbe.
-- **Direkt öffnen und löschen**: Öffnen, im Explorer/Finder zeigen, Pfad kopieren – und Löschen (lokal in den Papierkorb,
-  auf einer Freigabe endgültig, mit Rückfrage). Die Karte rechnet sofort neu.
-- **Quellen**: Laufwerke, Ordner und **SMB-Freigaben** (`\\nas\daten` bzw. `smb://nas/daten`, optional mit Benutzer und
-  Passwort – das Passwort bleibt geschützt auf dem Computer). Beim ersten Start werden die Laufwerke des Computers als Quellen angelegt.
-- **Analysen bleiben gespeichert**: je Quelle die letzten 5 … 50 (oder alle). Jede neue Analyse wird mit der vorherigen
-  verglichen – Kennzahl „Veränderung“, Färbung „nach Veränderung“ (rot gewachsen, blau geschrumpft) und die Liste der Veränderungen.
-- **Automatisch analysieren** (täglich, wöchentlich, monatlich) im Hintergrund, mit einer Mitteilung, was sich verändert hat.
-- **MatCloud** (die Cloud der Thix-Apps): Quellen und Analysen sind auf all deinen PCs und Macs gleich – du siehst auch die
-  Laufwerke deiner anderen Computer und wie sie wachsen. Ein Laufwerk wird nur auf seinem Computer analysiert, eine Freigabe überall.
-- **Tray / Menüleiste**, **Autostart**, **Setup** (Windows) bzw. **App-Bundle + DMG** (macOS), **OTA-Updates** mit optionalem
-  **Full-Auto-Update**, hell und dunkel.
+![Synchronisationen](docs/images/main-jobs-light.png)
 
-| Karte (hell) | Karte (dunkel) |
+## Quellen und Ziele
+
+Jeder Typ kann Quelle **und** Ziel sein – in jeder Kombination.
+
+| Gruppe | Typen |
 |---|---|
-| ![Karte](docs/images/main-map-light.png) | ![Karte dunkel](docs/images/main-map-dark.png) |
+| **Lokal & Netzwerk** | Dieser Computer (Windows/macOS), externe Festplatten / USB-Laufwerke (erkannt an der Kennung, nicht am Buchstaben), SMB / CIFS, NFS, Synology NAS, QNAP NAS |
+| **Server & Protokolle** | SFTP / SSH, FTP / FTPS, WebDAV / HTTPS, rsync über SSH, Hetzner Storage Box |
+| **Cloud-Speicher** | Amazon S3 / S3-kompatibel, Google Drive, Microsoft OneDrive, SharePoint, Dropbox, Nextcloud / ownCloud, Backblaze B2, Wasabi, Azure Blob Storage, Google Cloud Storage, MEGA, pCloud, Box, Seafile |
+| **ThixApps** | ThixSync Remote (PC zu PC, verschlüsselt, mit Kopplungscode), MatCloud / ThixCloud (ThixDrive) |
 
-| Färbung nach Veränderung | Quellen | Analysen |
-|---|---|---|
-| ![Veränderungen](docs/images/main-map-changes-light.png) | ![Quellen](docs/images/main-sources-light.png) | ![Analysen](docs/images/main-analyses-light.png) |
+## Funktionen
 
-| Quelle (SMB-Freigabe) | Einstellungen | Cloud: im Browser anmelden |
-|---|---|---|
-| ![Quelle](docs/images/main-source-light.png) | ![Einstellungen](docs/images/main-settings-light.png) | ![Cloud](docs/images/main-cloud-light.png) |
-
-## Bedienung
-
-| Taste / Maus | Wirkung |
-|---|---|
-| Klick auf eine Kachel oder Zeile | wählen (Karte und Liste zeigen dasselbe) |
-| Doppelklick / `Enter` in der Liste | in den Ordner zoomen (eine Datei: öffnen) |
-| `Rücktaste` | eine Ebene höher |
-| `Entf` (macOS `⌘ + ⌫`) | löschen (mit Rückfrage, abschaltbar) |
-| Rechtsklick | Öffnen, Im Explorer/Finder zeigen, Pfad kopieren, Hineinzoomen, Löschen |
-| `F5` | die Quelle neu analysieren |
-| `→` `←` in der Liste | Ordner auf- / zuklappen |
-| `Strg/⌘ + 1 / 2 / 3` | Karte / Quellen / Analysen |
-| `Strg/⌘ + N` | neue Quelle |
-| `Strg/⌘ + ,` | Einstellungen |
-| `Strg/⌘ + B` | Menü ein- / ausklappen |
-| `Esc` | zurück zur Karte |
-
-Die Version unten links („Version 1.0.0 · release“) öffnet „Über ThixSync“.
+- **Aufträge** mit einem oder mehreren Ordnerpaaren je Quelle und Ziel, Filtern (Muster, versteckte Dateien, Größe, Alter),
+  Konfliktregeln (fragen, neuere gewinnt, Quelle/Ziel gewinnt, beide behalten), Versionen in `.thixsync/versions`,
+  Erkennung von Umbenennungen, Prüfung nach dem Kopieren und einer Sicherheitsgrenze gegen Massenlöschungen.
+- **Vorschau** (Analyse) mit allen geplanten Änderungen; Konflikte einzeln lösen.
+- **Zeitpläne:** Intervall, täglich, wöchentlich, beim Start, bei Änderungen (lokale Ordner werden überwacht), verpasste Läufe nachholen.
+- **Schnell:** zwei Bahnen – kleine Dateien mit voller Parallelität, große in Stücken –, Kopien mit dem Betriebssystem zwischen
+  lokalen Ordnern, Anpassung an Ratenlimits der Clouds, globale Bandbreitengrenze.
+- **Protokolle** jedes Laufs, durchsuchbar und filterbar.
+- **MatCloud:** Aufträge und Verbindungen (ohne Passwörter) auf allen Computern gleich.
+- **Kommandozeile** `thixsync-cli` (list, run, status, runs, log, connections, test, pause, resume, export, import).
+- **Setup, Autostart, Updates:** eigenes Setup, Start bei der Anmeldung, Updates über das Internet (auf Wunsch vollautomatisch);
+  installierbar und aktualisierbar über den **ThixLauncher**.
 
 ## Installation
 
-**Windows** – `ThixSyncSetup.exe` aus dem [Release-Kanal](https://github.com/Real-TTX/ThixSync/releases/tag/release-channel)
-starten. Installiert pro Benutzer nach `%LocalAppData%\Programs\ThixSync` (ohne Administratorrechte), mit Startmenü,
-„Installierte Apps“, optional Autostart, Desktop-Verknüpfung und automatischen Updates (vorausgewählt). Auch über den
-**ThixLauncher** installierbar (Store der Thix-Apps). Deinstallieren über „Installierte Apps“.
+- **ThixLauncher** (empfohlen): ThixSync im Store installieren – Updates kommen von dort.
+- **Windows:** `ThixSyncSetup.exe` aus dem Release `release-channel` (Nightly: `nightly-channel`).
+- **macOS:** `ThixSync-macOS-arm64.dmg` / `-x64.dmg`.
+- **Nur die Kommandozeile:** `ThixSync-CLI-win-x64.zip`, `ThixSync-CLI-macOS-{arm64,x64}.tar.gz`.
 
-**macOS** – `ThixSync-macOS-arm64.dmg` (Apple Silicon) bzw. `-x64.dmg` (Intel) öffnen und ThixSync in „Programme“ ziehen.
-Die App ist (noch) ad hoc signiert: beim ersten Start Rechtsklick › Öffnen. Für geschützte Ordner (Schreibtisch, Dokumente,
-Downloads, andere Volumes) fragt macOS einmal; mit „Festplattenvollzugriff“ liest ThixSync alles.
+## Kommandozeile
 
-**Cloud** – die Cloud ist **MatCloud**, die gemeinsame Cloud aller Thix-Apps (eigenes Repository `MatCloud`, Docker, Port 4950).
-In ThixSync unter Einstellungen › Cloud die Adresse eingeben und **„Im Browser anmelden“** wählen (oder mit Benutzername und
-Passwort). Über den ThixLauncher installiert, ist ThixSync gleich angemeldet.
+```
+thixsync-cli list
+thixsync-cli run "Dokumente & Fotos" --preview
+thixsync-cli run "Dokumente & Fotos"
+thixsync-cli runs --job "Dokumente & Fotos" --limit 5
+thixsync-cli help
+```
 
-## Versionen, Kanäle, Updates
-
-| Branch | Version | Desktop-Kanal |
-|---|---|---|
-| `main` | `0.1.<build>-<datum>` (z. B. `0.1.42-20261123`) | `release-channel` + Release `v<version>` |
-| `dev` | `nightly-<build>-<datum>` | `nightly-channel` |
-| sonst / lokal | `local-<datum>` | – (keine Updates) |
-
-Jede installierte Version prüft beim Start und alle 6 Stunden ihren eigenen Kanal (abschaltbar); mit „Updates automatisch
-installieren“ (Full-Auto-Update, bei neuen Installationen an) wird ohne Rückfrage aktualisiert und neu gestartet.
-
-## Für Administratoren
-
-Richtlinien (Wert 1): Windows `HKLM\SOFTWARE\Policies\ThixSync`, macOS Konfigurationsprofil `info.schmoldt.thixsync`.
-
-| Richtlinie | Wirkung |
-|---|---|
-| `LockConfiguration` | Einstellungen nur lesbar |
-| `DisableCloud` | keine Verbindung zur MatCloud |
-| `DisableUpdates` | keine Update-Prüfung, keine Installation |
-| `DisableDelete` | ThixSync zeigt und öffnet, löscht aber nichts |
-| `DisableShares` | keine Netzwerkfreigaben als Quellen |
+Exit-Codes: 0 erfolgreich, 1 Warnungen/Konflikte, 2 fehlgeschlagen, 3 falscher Aufruf, 4 nicht gefunden, 5 abgelehnt, 130 abgebrochen.
 
 ## Entwicklung
 
-```bash
+```
 dotnet build ThixSync.slnx
-dotnet test tests/ThixSync.Tests
-dotnet run --project src/ThixSync -- --snapshot docs/images   # alle Fenster als PNG (hell/dunkel) mit Beispieldaten
+dotnet test ThixSync.slnx
+dotnet run --project src/ThixSync
+dotnet run --project src/ThixSync -- --snapshot docs/images
 ```
 
-- Tests: Scanner, gespeicherte Bäume, Vergleich, Treemap, Quellen mit allen Prüfungen, Löschen (nie das System, nur der
-  Testordner), Sync zweier Computer gegen eine MatCloud im Speicher (`FakeCloud`) und die Oberfläche headless gerendert.
-- `ThixSync.exe --self-test <bericht.txt>` prüft das veröffentlichte (getrimmte) Programm selbst; die CI führt das bei jedem Windows-Build aus.
-- `THIXSYNC_DATA_DIR=<ordner>` startet die App mit eigenem Datenordner (eigene Instanz, berührt nichts Installiertes).
-- Logo und Icons: `branding/` ([branding/README.md](branding/README.md)).
-- Aufbau und Regeln: [CLAUDE.md](CLAUDE.md).
+Versionen: Release `<major>.<minor>.<build>-<datum>` (Branch `main`), Nightly `nightly-<build>-<datum>` (Branch `dev`), lokal
+`local-<datum>`. Für Google Drive, OneDrive, SharePoint, Dropbox und Box braucht der Build App-Registrierungen:
+[docs/APP-REGISTRIERUNG.md](docs/APP-REGISTRIERUNG.md). Aufbau und Regeln: [CLAUDE.md](CLAUDE.md).
 
 © Matthias Schmoldt
