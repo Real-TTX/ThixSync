@@ -14,6 +14,12 @@ public readonly record struct StorageEntry(string Path, bool IsFolder, long Size
     /// <summary>The storage's own id of the item (Google Drive file id, OneDrive item id …), if it has one; providers use it as a cache.</summary>
     public string? NativeId { get; init; }
 
+    /// <summary>Hidden (Windows attribute, or a name starting with '.').</summary>
+    public bool IsHidden { get; init; }
+
+    /// <summary>A file of the operating system (Windows system attribute).</summary>
+    public bool IsSystem { get; init; }
+
     public string Name => StoragePath.NameOf(Path);
 }
 
