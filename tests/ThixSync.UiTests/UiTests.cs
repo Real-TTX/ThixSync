@@ -378,6 +378,18 @@ public sealed class UiTests
     {
         using var data = new TestData();
         SampleSync.Create();
+
+        // the NAS of the sample is not there: its provider answers at once (a real lookup of diskstation.local may take long)
+        var job = JobService.Get(SampleSync.ProjectsJobId);
+        foreach (var connectionId in new[] { job.SourceConnectionId, job.TargetConnectionId })
+        {
+            var kind = ConnectionService.Get(connectionId).Kind;
+            if (kind is not ConnectionKind.Local)
+            {
+                StorageProviders.OverrideForTests(kind, new UnreachableProvider(kind));
+            }
+        }
+
         var window = Open();
         var card = window.JobsPage.Cards.Single(card => card.JobId == SampleSync.ProjectsJobId);
         card.RunButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
@@ -627,4 +639,13 @@ public sealed class UiTests
         Directory.CreateDirectory(ShotFolder);
         frame.Save(Path.Combine(ShotFolder, $"{name}.png"));
     }
+}
+
+/// <summary>A provider whose storage is never reachable (the run fails at once with a reason).</summary>
+internal sealed class UnreachableProvider(ConnectionKind kind) : IStorageProvider
+{
+    public IReadOnlyList<ConnectionKind> Kinds { get; } = [kind];
+
+    public IStorage Open(StorageContext context) =>
+        throw new StorageException(StorageErrorKind.Unreachable, $"{context.Connection.Name} ist nicht erreichbar.");
 }
