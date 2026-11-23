@@ -61,7 +61,7 @@ public static partial class NetworkShares
     {
         if (OperatingSystem.IsWindows())
         {
-            return await Task.Run(() => ConnectWindows(address, userName, password), cancellationToken);
+            return await ConnectWindowsAsync(address, userName, password, cancellationToken);
         }
 
         if (OperatingSystem.IsMacOS())
@@ -121,6 +121,10 @@ public static partial class NetworkShares
         using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\NfsClnt");
         return key is not null;
     }
+
+    [SupportedOSPlatform("windows")]
+    private static Task<string> ConnectWindowsAsync(ShareAddress address, string userName, string? password, CancellationToken cancellationToken) =>
+        Task.Run(() => ConnectWindows(address, userName, password), cancellationToken);
 
     [SupportedOSPlatform("windows")]
     private static string ConnectWindows(ShareAddress address, string userName, string? password)
