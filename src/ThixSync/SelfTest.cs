@@ -114,6 +114,52 @@ internal static class SelfTest
             }
         });
 
+        await Check("storage providers (every type, trimmed libraries)", async () =>
+        {
+            // every type has its provider, and a storage of each comes up without the network (SSH.NET, FluentFTP, MegaApiClient,
+            // the HTTP clients): what trimming could have taken away shows here
+            var opened = 0;
+            foreach (var type in Core.Storage.ConnectionCatalog.All)
+            {
+                var provider = Core.Storage.StorageProviders.Find(type.Kind);
+                Ensure(provider is not null, $"no provider for {type.Kind}");
+                if (type.Kind is Core.Models.ConnectionKind.Local or Core.Models.ConnectionKind.ExternalDrive or Core.Models.ConnectionKind.MatCloud)
+                {
+                    continue; // need a folder / a drive / the cloud sign-in
+                }
+
+                var settings = new Dictionary<string, string>(StringComparer.Ordinal);
+                foreach (var field in type.Fields)
+                {
+                    settings[field.Key] = field.Type switch
+                    {
+                        Core.Storage.FieldType.Url => "https://example.invalid/",
+                        Core.Storage.FieldType.Number => field.Default.Length > 0 ? field.Default : "22",
+                        Core.Storage.FieldType.Toggle => "false",
+                        Core.Storage.FieldType.Choice when field.Default.Length > 0 => field.Default,
+                        Core.Storage.FieldType.Choice when field.Choices.Count > 0 => field.Choices[0].Value,
+                        _ => "selftest",
+                    };
+                }
+
+                settings[Core.Storage.ConnectionFields.Host] = "example.invalid";
+                settings[Core.Storage.ConnectionFields.AuthMethod] = settings.GetValueOrDefault(Core.Storage.ConnectionFields.AuthMethod) == "key" ? "password" : settings.GetValueOrDefault(Core.Storage.ConnectionFields.AuthMethod, "password");
+                var connection = new Core.Models.Connection { Name = type.Name, Kind = type.Kind, Settings = settings };
+                try
+                {
+                    await using var storage = provider!.Open(new Core.Storage.StorageContext { Connection = connection, Folder = "selftest", Secret = "selftest" });
+                    Ensure(storage.DisplayName.Length > 0, $"{type.Kind} has no name");
+                    opened++;
+                }
+                catch (Core.Storage.StorageException)
+                {
+                    opened++; // refused the made-up fields: the code is there
+                }
+            }
+
+            return $"{Core.Storage.ConnectionCatalog.All.Count} types, {opened} storages opened";
+        });
+
         await Check("install options (installer.json, arguments)", () =>
         {
             Ensure(InstallerOptions.Config is { Autostart: not null, DesktopShortcut: not null, AutomaticUpdates: not null }, "installer.json not read");
