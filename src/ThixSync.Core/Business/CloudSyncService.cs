@@ -247,6 +247,16 @@ public static class CloudSyncService
         _loop = null;
     }
 
+    /// <summary>
+    /// The Drive of the signed-in account for the storage "MatCloud" (ThixSync is a guest app of the Drive, contract 1.7): its clients with the
+    /// device token of this computer; null when this computer is not connected. The caller disposes them.
+    /// </summary>
+    internal static DriveClients? OpenDrive()
+    {
+        var cloud = SettingsService.Get().Cloud;
+        return ReadToken(cloud) is { } token ? CloudClient.CreateDrive(cloud.ServerUrl, token, cloud.UserName) : null;
+    }
+
     /// <summary>Something changed here (or the network is back): sync now instead of waiting.</summary>
     public static void Kick()
     {

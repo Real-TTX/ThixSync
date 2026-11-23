@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Net.Http.Headers;
 using MatCloud.Contract;
 
 namespace ThixSync.Core.Infrastructure;
@@ -21,6 +23,22 @@ internal sealed class CloudClient : IDisposable
     public static string UserAgent => $"ThixSync/{Token(AppInfo.Version)} ({Token(AppInfo.PlatformName)})";
 
     public static CloudClient Create(string serverUrl, string? token) => new(serverUrl, token);
+
+    /// <summary>
+    /// The Drive of the account (the storage "MatCloud"): the client of the contract for its calls, and an HTTP client with the same headers
+    /// that streams the content of a file (no time limit for the whole download, unlike <see cref="MatCloudClient.DownloadDriveFileAsync"/>).
+    /// </summary>
+    public static DriveClients CreateDrive(string serverUrl, string token, string userName)
+    {
+        var handler = HandlerForTests?.Invoke();
+        var http = handler is null ? new HttpClient() : new HttpClient(handler, disposeHandler: false);
+        http.BaseAddress = new Uri(serverUrl.TrimEnd('/') + "/");
+        http.Timeout = Timeout.InfiniteTimeSpan;
+        http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        http.DefaultRequestHeaders.Add(CloudContract.ProtocolHeader, CloudContract.ProtocolVersion.ToString(CultureInfo.InvariantCulture));
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return new DriveClients(new MatCloudClient(serverUrl, token, UserAgent, handler), http, userName);
+    }
 
     public Task<DeviceLoginResponse> LoginAsync(string userName, string password, string deviceName, CancellationToken cancellationToken) =>
         _client.LoginAsync(new DeviceLoginRequest(userName, password, deviceName, AppInfo.PlatformName, AppInfo.Version, CloudApps.Sync), cancellationToken);
@@ -52,5 +70,22 @@ internal sealed class CloudClient : IDisposable
     {
         var token = new string(text.Select(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_' ? c : '-').ToArray()).Trim('-');
         return token.Length > 0 ? token : "unknown";
+    }
+}
+
+/// <summary>The clients of the Drive of one signed-in account (see <see cref="CloudClient.CreateDrive"/>); the owner disposes them.</summary>
+internal sealed class DriveClients(MatCloudClient client, HttpClient http, string userName) : IDisposable
+{
+    public MatCloudClient Client { get; } = client;
+
+    /// <summary>For streaming the content of files (GET <c>DriveContract.Content</c>).</summary>
+    public HttpClient Http { get; } = http;
+
+    public string UserName { get; } = userName;
+
+    public void Dispose()
+    {
+        Client.Dispose();
+        Http.Dispose();
     }
 }
