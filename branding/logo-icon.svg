@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <!--
+    ThixSync app icon, full detail (48 px and larger): two arrows chasing each other round a circle - files kept in step -
+    on a blue tile. Geometry on a 256 grid (generated);
+    tools/render-icons.js renders the PNG, ICO and ICNS files from it.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5AA9FF"/>
+      <stop offset="1" stop-color="#1A5FD6"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+  <path d="M69.7 149.2A62 62 0 0 1 159 74.3" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+  <path d="M184.9 89.3L171.3 52.9L146.7 95.7Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="5.5" stroke-linejoin="round"/>
+  <path d="M186.3 106.8A62 62 0 0 1 97 181.7" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+  <path d="M71.1 166.7L84.7 203.1L109.4 160.3Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="5.5" stroke-linejoin="round"/>
+</svg>

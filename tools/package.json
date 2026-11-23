@@ -1,0 +1,11 @@
+{
+  "name": "thixsync-tools",
+  "private": true,
+  "description": "Build helpers: renders the logo into PNG/ICO files (render-icons.js) with the installed Microsoft Edge.",
+  "scripts": {
+    "icons": "node render-icons.js"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.0"
+  }
+}

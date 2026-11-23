@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 256 256">
+  <!-- ThixSync favicon / small icon (16-32 px): full-bleed tile, the two arrows thicker and larger. -->
+  <rect x="0" y="0" width="256" height="256" rx="60" fill="#1A5FD6"/>
+  <path d="M62.2 151.9A70 70 0 0 1 163 67.4" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  <path d="M196.9 86.9L179.2 39.4L146.8 95.4Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7.5" stroke-linejoin="round"/>
+  <path d="M193.8 104.1A70 70 0 0 1 93 188.6" fill="none" stroke="#FFFFFF" stroke-width="30" stroke-linecap="round"/>
+  <path d="M59.1 169.1L76.9 216.6L109.2 160.6Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="7.5" stroke-linejoin="round"/>
+</svg>

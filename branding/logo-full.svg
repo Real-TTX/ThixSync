@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="200" viewBox="0 0 720 200">
+  <!-- ThixSync full logo: app icon + word mark ("Thix" ink, "Sync" brand blue). For headers, README, about pages. -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#5AA9FF"/>
+      <stop offset="1" stop-color="#1A5FD6"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 0) scale(0.78125)">
+    <rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)"/>
+    <path d="M69.7 149.2A62 62 0 0 1 159 74.3" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M184.9 89.3L171.3 52.9L146.7 95.7Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="5.5" stroke-linejoin="round"/>
+    <path d="M186.3 106.8A62 62 0 0 1 97 181.7" fill="none" stroke="#FFFFFF" stroke-width="22" stroke-linecap="round"/>
+    <path d="M71.1 166.7L84.7 203.1L109.4 160.3Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="5.5" stroke-linejoin="round"/>
+  </g>
+  <text x="228" y="134" font-family="'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', Inter, 'Helvetica Neue', Arial, sans-serif" font-size="104" font-weight="650" letter-spacing="-2">
+    <tspan fill="#111827">Thix</tspan><tspan fill="#1A5FD6">Sync</tspan>
+  </text>
+</svg>

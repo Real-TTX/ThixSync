@@ -1,0 +1,60 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mat="using:MatDesktop"
+             xmlns:controls="using:ThixSync.Controls"
+             x:Class="ThixSync.Pages.AboutPage">
+  <!-- About ThixSync: reached through the version at the foot of the menu (DESK-04); the version reads as everywhere (SETUP-07). -->
+  <Border Background="{DynamicResource Mat.Surface}">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <StackPanel Margin="28,22" MaxWidth="640" HorizontalAlignment="Left" Spacing="18">
+        <TextBlock Text="Über ThixSync" Theme="{StaticResource MatText.PageTitle}" />
+        <Border Theme="{StaticResource MatCard}" Padding="24">
+          <StackPanel Spacing="18">
+            <StackPanel Orientation="Horizontal" Spacing="18">
+              <Image Source="/Assets/logo-256.png" Width="88" Height="88" RenderOptions.BitmapInterpolationMode="HighQuality" />
+              <StackPanel VerticalAlignment="Center" Spacing="4">
+                <TextBlock FontSize="{DynamicResource Mat.FontSize2xl}" FontWeight="SemiBold">
+                  <Run Text="Thix" /><Run Text="Space" Foreground="{DynamicResource Mat.AccentText}" />
+                </TextBlock>
+                <TextBlock Text="Speicheranalyse für Windows und macOS" Theme="{StaticResource MatText.Muted}" />
+                <SelectableTextBlock x:Name="VersionText" FontSize="{DynamicResource Mat.FontSizeSm}" />
+              </StackPanel>
+            </StackPanel>
+            <!-- Updates: the state of the last check and the way to Einstellungen › Updates -->
+            <Border Background="{DynamicResource Mat.Surface2}" CornerRadius="{DynamicResource Mat.RadiusLg}" Padding="14,12">
+              <Grid ColumnDefinitions="Auto,*,Auto">
+                <mat:MatIcon x:Name="UpdateIcon" Icon="download" Size="20" Margin="0,0,12,0" Foreground="{DynamicResource Mat.TextMuted}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                  <TextBlock x:Name="UpdateTitle" FontWeight="SemiBold" />
+                  <TextBlock x:Name="UpdateText" Theme="{StaticResource MatText.Muted}" />
+                </StackPanel>
+                <Button Grid.Column="2" x:Name="UpdateButton" Click="OnUpdateClick" Margin="12,0,0,0" VerticalAlignment="Center">
+                  <controls:IconLabel x:Name="UpdateLabel" Icon="download" Text="Nach Updates suchen …" />
+                </Button>
+              </Grid>
+            </Border>
+            <TextBlock TextWrapping="Wrap" LineHeight="21"
+                       Text="ThixSync analysiert Laufwerke und Netzwerkfreigaben (SMB) und zeigt auf einer interaktiven Karte, was wie viel Platz belegt. Dateien und Ordner öffnest oder löschst du direkt dort. Jede Analyse bleibt gespeichert, so siehst du, was seit der letzten gewachsen oder geschrumpft ist – mit MatCloud auf all deinen Computern." />
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto">
+              <TextBlock Text="Build" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Column="1" x:Name="BuildText" Margin="0,3" />
+              <TextBlock Grid.Row="1" Text="System" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <TextBlock Grid.Row="1" Grid.Column="1" x:Name="SystemText" Margin="0,3" TextWrapping="Wrap" />
+              <TextBlock Grid.Row="2" Text="Daten" Theme="{StaticResource MatText.Muted}" Margin="0,3,24,3" />
+              <SelectableTextBlock Grid.Row="2" Grid.Column="1" x:Name="DataText" Margin="0,3" TextWrapping="Wrap" />
+            </Grid>
+            <TextBlock Text="© Matthias Schmoldt. Gestaltung und Symbole: MatDesign (Symbole: Lucide, ISC-Lizenz)." Theme="{StaticResource MatText.Faint}" />
+          </StackPanel>
+        </Border>
+        <controls:ActionBar>
+          <Button Click="OnGitHubClick">
+            <controls:IconLabel Icon="external" Text="Projekt auf GitHub" />
+          </Button>
+          <Button Click="OnBackClick">
+            <controls:IconLabel Icon="grid" Text="Zurück zur Karte" />
+          </Button>
+        </controls:ActionBar>
+      </StackPanel>
+    </ScrollViewer>
+  </Border>
+</UserControl>

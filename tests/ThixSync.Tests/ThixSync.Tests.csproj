@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests of the core (no UI): connections, jobs, the engine (scan, compare, plan, transfer, versions, conflicts) on real folders and
+    in-memory storages, the providers that can be tested without an account (local, WebDAV/S3/SFTP against fakes), Remote between two
+    endpoints in one process, the sync with MatCloud against an in-memory cloud, setup, autostart and updates.
+    The UI is tested in ThixSync.UiTests.
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="GitHubActionsTestLogger" Version="2.4.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ThixSync.Core\ThixSync.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+{
+  "desktopShortcut": { "default": true },
+  "autostart": { "default": true },
+  "automaticUpdates": { "default": true },
+  "fileTypes": []
+}

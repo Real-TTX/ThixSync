@@ -1,0 +1,37 @@
+<mat:MatWindow xmlns="https://github.com/avaloniaui"
+               xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+               xmlns:mat="using:MatDesktop"
+               xmlns:controls="using:ThixSync.Controls"
+               x:Class="ThixSync.MainWindow"
+               Title="ThixSync" Width="1280" Height="820" MinWidth="900" MinHeight="560"
+               WindowStartupLocation="CenterScreen">
+  <!--
+    The one window of ThixSync in MatDesktop's chrome: the title bar (DESK-03: logo and word mark, a running analysis in the
+    middle, the caption buttons on Windows, the traffic lights on macOS), the menu (DESK-04: Karte, Quellen, Analysen, Settings
+    below a line, at its foot the cloud state, the version = About and the fold to a rail) and the page.
+  -->
+  <Grid RowDefinitions="Auto,*">
+    <mat:MatTitleBar x:Name="TitleBar" AppName="ThixSync">
+      <mat:MatTitleBar.WordMark>
+        <TextBlock VerticalAlignment="Center" FontSize="{DynamicResource Mat.FontSizeXl}" FontWeight="SemiBold">
+          <Run Text="Thix" /><Run Text="Space" Foreground="{DynamicResource Mat.AccentText}" />
+        </TextBlock>
+      </mat:MatTitleBar.WordMark>
+      <mat:MatTitleBar.Center>
+        <!-- A running analysis: always in sight, also on the other pages (a click shows the map) -->
+        <Button x:Name="ScanStatus" Theme="{StaticResource MatButton.Ghost}" IsVisible="False" Click="OnScanStatusClick" HorizontalAlignment="Center"
+                AutomationProperties.Name="Laufende Analyse">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <ProgressBar x:Name="ScanProgress" Theme="{StaticResource MatProgress}" Width="120" Height="5" Maximum="1" VerticalAlignment="Center" />
+            <TextBlock x:Name="ScanText" VerticalAlignment="Center" MaxWidth="460" TextTrimming="CharacterEllipsis" />
+          </StackPanel>
+        </Button>
+      </mat:MatTitleBar.Center>
+    </mat:MatTitleBar>
+
+    <Grid Grid.Row="1" x:Name="BodyGrid" ColumnDefinitions="Auto,*">
+      <mat:MatNav x:Name="Sidebar" AppName="ThixSync" />
+      <ContentControl Grid.Column="1" x:Name="PageHost" />
+    </Grid>
+  </Grid>
+</mat:MatWindow>

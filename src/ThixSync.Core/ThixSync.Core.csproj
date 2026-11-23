@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Models, business layer (static classes), infrastructure and the native parts of the desktop app (scanner, SMB shares,
+    trash) for Windows and macOS. No UI. Windows-only code is guarded by OperatingSystem.IsWindows() or
+    [SupportedOSPlatform("windows")].
+    MatCloud/ is a COPY of the contract of MatCloud (routes, DTOs, MatCloudClient): never edited here, copied again with
+    node ../MatCloud/tools/contract-copy.js src/ThixSync.Core (see CLAUDE.md).
+  -->
+  <PropertyGroup>
+    <TargetFramework>$(DesktopTargetFramework)</TargetFramework>
+    <RootNamespace>ThixSync.Core</RootNamespace>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <SupportedOSPlatformVersion Condition="'$(OS)' == 'Windows_NT'">10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ThixSync.Tests" />
+    <InternalsVisibleTo Include="ThixSync" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- What the setup offers (SETUP-08): read by InstallerOptions, published in the update manifest by CI -->
+    <EmbeddedResource Include="installer.json" LogicalName="installer.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.15" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.15" />
+  </ItemGroup>
+
+</Project>

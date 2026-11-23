@@ -1,0 +1,11 @@
+* text=auto
+
+# Read inside Linux containers / on macOS: keep LF
+Dockerfile text eol=lf
+*.sh text eol=lf
+
+*.png binary
+*.ico binary
+*.icns binary
+*.ttf binary
+*.woff2 binary

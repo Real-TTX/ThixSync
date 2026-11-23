@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ThixSync.Core/ThixSync.Core.csproj" />
+    <Project Path="src/ThixSync/ThixSync.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ThixSync.Tests/ThixSync.Tests.csproj" />
+  </Folder>
+</Solution>
