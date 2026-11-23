@@ -113,7 +113,7 @@ public static class ConnectionService
         };
     }
 
-    /// <summary>The server of a Hetzner Storage Box (from the user name when no host is set).</summary>
+    /// <summary>The server of a Hetzner Storage Box (from the user name when no host is set; a sub-account has its own: u123456-sub1.your-storagebox.de).</summary>
     public static string HetznerHost(Connection connection)
     {
         var host = connection.Get(ConnectionFields.Host);
@@ -122,9 +122,8 @@ public static class ConnectionService
             return host;
         }
 
-        var user = connection.Get(ConnectionFields.UserName);
-        var main = user.Split('-')[0];
-        return main.Length == 0 ? "" : $"{main}.your-storagebox.de";
+        var user = connection.Get(ConnectionFields.UserName).Trim();
+        return user.Length == 0 ? "" : $"{user}.your-storagebox.de";
     }
 
     /// <summary>Whether this computer can reach a connection (a local one only on its computer).</summary>
@@ -470,9 +469,16 @@ public static class ConnectionService
 
     private static string SecretAccount(Guid id) => $"connection:{id:D}";
 
+    /// <summary>Values providers learn while connecting (trust on first use, the account, the region): kept for every type.</summary>
+    private static readonly string[] LearnedKeys =
+    [
+        ConnectionFields.HostKey, ConnectionFields.CertificateHash, ConnectionFields.SignedInAs, ConnectionFields.Fingerprint,
+        ConnectionFields.RemoteDevice, ConnectionFields.Region,
+    ];
+
     private static Dictionary<string, string> CleanSettings(ConnectionType type, IReadOnlyDictionary<string, string> settings)
     {
-        var known = type.Fields.Select(field => field.Key).ToHashSet(StringComparer.Ordinal);
+        var known = type.Fields.Select(field => field.Key).Concat(LearnedKeys).ToHashSet(StringComparer.Ordinal);
         var clean = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var (key, value) in settings)
         {

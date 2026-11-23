@@ -226,7 +226,7 @@ public sealed class ServerProviderTests
     {
         var sftp = new HetznerProvider().Open(Context(ConnectionKind.HetznerStorageBox, new() { [ConnectionFields.UserName] = "u123456-sub1" }, "/backup"));
         Assert.IsType<SftpStorage>(sftp);
-        Assert.Equal("sftp://u123456-sub1@u123456.your-storagebox.de:23/backup", sftp.DisplayName);
+        Assert.Equal("sftp://u123456-sub1@u123456-sub1.your-storagebox.de:23/backup", sftp.DisplayName);
 
         var webDav = Assert.IsType<WebDavStorage>(new HetznerProvider().Open(Context(ConnectionKind.HetznerStorageBox, new()
         {

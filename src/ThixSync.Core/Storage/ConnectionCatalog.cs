@@ -413,7 +413,7 @@ public static class ConnectionCatalog
                 {
                     Required = true,
                     Placeholder = "u123456 oder u123456-sub1",
-                    Help = "Der Server ergibt sich daraus: u123456.your-storagebox.de.",
+                    Help = "Der Server ergibt sich daraus: u123456.your-storagebox.de (Unterkonto: u123456-sub1.your-storagebox.de).",
                 },
                 new(ConnectionFields.Protocol, "Protokoll", FieldType.Choice)
                 {

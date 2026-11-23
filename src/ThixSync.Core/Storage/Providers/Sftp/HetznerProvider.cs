@@ -7,7 +7,7 @@ namespace ThixSync.Core.Storage.Providers.Sftp;
 
 /// <summary>
 /// "Hetzner Storage Box": SFTP on port 23 (the default, recommended) or WebDAV over https://&lt;server&gt;/. The server follows from the
-/// user name (u123456 / u123456-sub1 → u123456.your-storagebox.de, <see cref="ConnectionService.HetznerHost"/>) unless one is set.
+/// user name (u123456 → u123456.your-storagebox.de, a sub-account u123456-sub1 → u123456-sub1.your-storagebox.de, <see cref="ConnectionService.HetznerHost"/>) unless one is set.
 /// </summary>
 public sealed class HetznerProvider : IStorageProvider, IFolderBrowser
 {
