@@ -110,6 +110,7 @@ public sealed class ConnectionPicker : ComboBox
     {
         MinWidth = 280;
         HorizontalAlignment = HorizontalAlignment.Stretch;
+        VerticalAlignment = VerticalAlignment.Stretch; // as tall as "Neue Verbindung" next to it
         AutomationProperties.SetName(this, name);
         PlaceholderText = "Verbindung wählen …";
         ItemTemplate = new FuncDataTemplate<Entry>((entry, _) => entry switch
@@ -175,8 +176,9 @@ public sealed class ConnectionPicker : ComboBox
 }
 
 /// <summary>
-/// The folder pairs of a job: a row per pair – the folder of the source, the arrow of the mode, the folder of the target, each with
-/// "Durchsuchen …", and a button that removes the pair; below them "Ordnerpaar hinzufügen". <see cref="Browse"/> picks a folder (the
+/// The folder pairs of a job: a card per pair – the folder of the source above the folder of the target (each over the full width with
+/// "Durchsuchen …", so narrow windows never squeeze them), the arrow of the mode pointing down between them, and a button that removes
+/// the pair; below them "Ordnerpaar hinzufügen". <see cref="Browse"/> picks a folder (the
 /// page knows how: the system's folder picker for this computer, the folder browser of the connection otherwise).
 /// </summary>
 public sealed class FolderPairsEditor : StackPanel
@@ -191,9 +193,7 @@ public sealed class FolderPairsEditor : StackPanel
     public FolderPairsEditor()
     {
         Spacing = 10;
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,56,*,40") };
-        header.Children.Add(Ui.Cell(Ui.Text("Ordner der Quelle", "MatText.FieldLabel"), 0, 0));
-        header.Children.Add(Ui.Cell(Ui.Text("Ordner des Ziels", "MatText.FieldLabel"), 0, 2));
+        var header = Ui.Text("Ordnerpaare", "MatText.FieldLabel");
         _add = Ui.Button("plus", "Ordnerpaar hinzufügen");
         _add.HorizontalAlignment = HorizontalAlignment.Left;
         _add.Click += (_, _) =>
@@ -261,17 +261,28 @@ public sealed class FolderPairsEditor : StackPanel
         var number = _pairs.Count + 1;
         AutomationProperties.SetName(source, $"Ordner der Quelle {number}");
         AutomationProperties.SetName(target, $"Ordner des Ziels {number}");
-        var arrow = new SyncArrow { IsTwoWay = _isTwoWay, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        var remove = new Button { Content = new MatIcon { Icon = "x", Size = 16 } }.Themed("MatButton.Icon");
+        // the arrow points from the source (above) down to the target
+        var arrow = new SyncArrow
+        {
+            IsTwoWay = _isTwoWay,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            RenderTransform = new RotateTransform(90),
+        };
+        var remove = new Button { Content = new MatIcon { Icon = "x", Size = 16 }, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) }.Themed("MatButton.Icon");
         AutomationProperties.SetName(remove, $"Ordnerpaar {number} entfernen");
         ToolTip.SetTip(remove, "Ordnerpaar entfernen");
 
-        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,56,*,40") };
-        row.Children.Add(Ui.Cell(WithBrowse(source, isSource: true), 0, 0));
-        row.Children.Add(Ui.Cell(arrow, 0, 1));
-        row.Children.Add(Ui.Cell(WithBrowse(target, isSource: false), 0, 2));
-        row.Children.Add(Ui.Cell(remove, 0, 3));
-        remove.HorizontalAlignment = HorizontalAlignment.Right;
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("40,12,Auto,12,*,Auto"), RowDefinitions = new RowDefinitions("Auto,8,Auto") };
+        grid.Children.Add(Ui.Cell(arrow, 0, 0));
+        Grid.SetRowSpan(arrow, 3);
+        grid.Children.Add(Ui.Cell(SideLabel("Quelle"), 0, 2));
+        grid.Children.Add(Ui.Cell(WithBrowse(source, isSource: true), 0, 4));
+        grid.Children.Add(Ui.Cell(SideLabel("Ziel"), 2, 2));
+        grid.Children.Add(Ui.Cell(WithBrowse(target, isSource: false), 2, 4));
+        grid.Children.Add(Ui.Cell(remove, 0, 5));
+        Grid.SetRowSpan(remove, 3);
+        var row = Ui.Card(grid, new Thickness(12, 12, 8, 12));
         var entry = (source, target, arrow);
         remove.Click += (_, _) =>
         {
@@ -286,6 +297,14 @@ public sealed class FolderPairsEditor : StackPanel
         };
         _pairs.Add(entry);
         _rows.Children.Add(row);
+    }
+
+    private static TextBlock SideLabel(string text)
+    {
+        var label = Ui.Text(text, "MatText.Muted");
+        label.MinWidth = 44;
+        label.VerticalAlignment = VerticalAlignment.Center;
+        return label;
     }
 
     private Control WithBrowse(TextBox box, bool isSource)

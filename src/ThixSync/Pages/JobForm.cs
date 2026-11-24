@@ -409,7 +409,8 @@ public sealed class JobForm : UserControl
         {
             Children =
             {
-                FormFields.Pair(sourceField, targetField),
+                sourceField,
+                targetField,
                 new Border { Child = _pairsHint, Margin = new Thickness(0, 0, 0, 16) },
                 pairsField,
             },
