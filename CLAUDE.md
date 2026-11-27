@@ -85,8 +85,10 @@ src/ThixSync.Core      (no UI) models, business layer (static classes), storages
                        on change, pause all), ProtocolService (runs and lines: query, pages, overview, cleanup), Format (German numbers),
                        OAuthService (sign-in in the browser), CloudSyncService (MatCloud: sign-in, loop push → pull → long poll),
                        CloudSyncItems (collections "connections" and "jobs"), StoreWatcher (changes of other processes, e.g. the CLI),
-                       ExportService, SettingsService, AccessPolicy, AutostartService, InstallService, InstallerOptions, UpdateService,
-                       MacAppBundle
+                       ExportService, SettingsService, AccessPolicy, AutostartService, InstallService, InstallerOptions, UpdateService
+                       (the restart says "--tray"; asked for in the window or with the window open, the marker
+                       "show-window-after-update" in the update folder brings the window back: ShowWindowAfterUpdate /
+                       TakeShowWindowAfterUpdate), MacAppBundle
   Remote/              RemoteServer (contract + implementation: TLS listener, pairing with a code bound to the certificate, device keys,
                        shares, discovery), RemoteSession, RemoteWire, RemoteSecurity, RemoteProtocol (the protocol, documented there)
   Infrastructure/      SyncStore (SQLite sync.db: Connection, Job, Run, RunEntry; tombstones for the cloud; data_version), JobStateStore,
@@ -149,8 +151,10 @@ src/ThixSync.Core      (no UI) models, business layer (static classes), storages
                        on change, pause all), ProtocolService (runs and lines: query, pages, overview, cleanup), Format (German numbers),
                        OAuthService (sign-in in the browser), CloudSyncService (MatCloud: sign-in, loop push → pull → long poll),
                        CloudSyncItems (collections "connections" and "jobs"), StoreWatcher (changes of other processes, e.g. the CLI),
-                       ExportService, SettingsService, AccessPolicy, AutostartService, InstallService, InstallerOptions, UpdateService,
-                       MacAppBundle
+                       ExportService, SettingsService, AccessPolicy, AutostartService, InstallService, InstallerOptions, UpdateService
+                       (the restart says "--tray"; asked for in the window or with the window open, the marker
+                       "show-window-after-update" in the update folder brings the window back: ShowWindowAfterUpdate /
+                       TakeShowWindowAfterUpdate), MacAppBundle
   Remote/              RemoteServer (contract + implementation: TLS listener, pairing with a code bound to the certificate, device keys,
                        shares, discovery), RemoteSession, RemoteWire, RemoteSecurity, RemoteProtocol (the protocol, documented there)
   Infrastructure/      SyncStore (SQLite sync.db: Connection, Job, Run, RunEntry; tombstones for the cloud; data_version), JobStateStore,

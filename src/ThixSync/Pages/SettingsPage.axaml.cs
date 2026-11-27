@@ -663,7 +663,7 @@ public partial class SettingsPage : UserControl
         UpdateProgress.IsVisible = true;
         try
         {
-            await UpdateCoordinator.InstallAsync(_availableUpdate, new Progress<double>(value => UpdateProgress.Value = value));
+            await UpdateCoordinator.InstallAsync(_availableUpdate, new Progress<double>(value => UpdateProgress.Value = value), showWindow: true);
         }
         catch (Exception exception) when (exception is BusinessException or HttpRequestException or IOException)
         {

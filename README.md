@@ -100,6 +100,8 @@ Exit-Codes: 0 erfolgreich, 1 Warnungen/Konflikte, 2 fehlgeschlagen, 3 falscher A
 
 Jede installierte Version prüft beim Start und alle 6 Stunden ihren eigenen Kanal (abschaltbar); mit „Updates automatisch
 installieren“ (Full-Auto-Update, bei neuen Installationen an) wird ohne Rückfrage aktualisiert und neu gestartet.
+Nach „Update installieren“ im Fenster (oder einem Update bei offenem Fenster) kommt ThixSync mit seinem Fenster wieder; ein
+automatisches Update im Hintergrund startet es wieder still im Infobereich bzw. in der Menüleiste.
 
 ## Für Administratoren
 
